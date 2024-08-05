@@ -4,7 +4,14 @@
 
 #include "types.h"
 #include <JojoAPI.h>
+#include <nlohmann/json.hpp>
+
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
+
+namespace fs = std::filesystem;
+using JSON = nlohmann::ordered_json;
 
 EXPORT ModMeta __stdcall GetModInfo();
 EXPORT void __stdcall ModInit();

@@ -1,9 +1,5 @@
 #pragma once
 
-#include <filesystem>
-
-namespace fs = std::filesystem;
-
 using u128 = __uint128_t;
 using u64 = std::uint64_t;
 using u32 = std::uint32_t;

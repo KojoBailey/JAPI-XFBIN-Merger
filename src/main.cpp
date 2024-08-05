@@ -1,9 +1,5 @@
 #include "main.h"
 
-#include <nlohmann/json.hpp>
-#include <filesystem>
-#include <fstream>
-
 // This function is called when the mod is loaded.
 // It should return a ModMeta struct with the mod's information.
 ModMeta __stdcall GetModInfo() {
@@ -17,7 +13,7 @@ ModMeta __stdcall GetModInfo() {
     return meta;
 }
 
-fs::path json_directory{"japi/mods/PlayerColorParam"};
+fs::path json_directory{"japi\\mods\\PlayerColorParam"};
 
 union U128 {
     u128 value;
