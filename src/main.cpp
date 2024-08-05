@@ -146,15 +146,16 @@ void __stdcall ModInit() {
         priority_file.close();
     }
 
-    // Create or refresh priority data.
+    // Refresh priority data.
+    for (auto& entry : fs::directory_iterator(json_directory)) {
+        if (entry.path().extension() == ".json" && entry.path().filename() != "_priority.json")
+            if (priority_json[entry.path().filename().stem().string()] == nullptr)
+                priority_json[entry.path().filename().stem().string()] = 0;
+    }
+
+    // Create new priority JSON file.
     std::ofstream priority_file(priority_path);
-    priority_json = {
-        {"Dein mutter", "aaah, wunderbar."}
-    };
     priority_file << priority_json.dump(2);
-    priority_file.close();
-
-
     priority_file.close();
 
     JAPI_LogInfo("Loaded!");
