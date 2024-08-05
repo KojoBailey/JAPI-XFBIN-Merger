@@ -136,6 +136,27 @@ void __stdcall ModInit() {
     if (!fs::exists(json_directory))
         fs::create_directory(json_directory);
 
+    fs::path priority_path{json_directory / "_priority.json"};
+    JSON priority_json;
+
+    // Read existing priority data, if it exists.
+    if (fs::exists(priority_path)) {
+        std::ifstream priority_file(priority_path);
+        priority_json = JSON::parse(priority_file);
+        priority_file.close();
+    }
+
+    // Create or refresh priority data.
+    std::ofstream priority_file(priority_path);
+    priority_json = {
+        {"Dein mutter", "aaah, wunderbar."}
+    };
+    priority_file << priority_json.dump(2);
+    priority_file.close();
+
+
+    priority_file.close();
+
     JAPI_LogInfo("Loaded!");
     JAPI_LogWarn("This plugin will only work up until the July 2024 version of JoJoAPI.");
 }
