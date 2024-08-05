@@ -15,6 +15,8 @@ ModMeta __stdcall GetModInfo() {
 
 fs::path json_directory{"japi\\mods\\PlayerColorParam"};
 
+JSON json;
+
 union U128 {
     u128 value;
     struct {
@@ -157,6 +159,8 @@ void __stdcall ModInit() {
     std::ofstream priority_file(priority_path);
     priority_file << priority_json.dump(2);
     priority_file.close();
+
+    // Merge JSON files together.
 
     JAPI_LogInfo("Loaded!");
     JAPI_LogWarn("This plugin will only work up until the July 2024 version of JoJoAPI.");
