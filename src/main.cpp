@@ -1,5 +1,7 @@
 #include "main.h"
 
+#include "nlohmann/json.hpp"
+
 // This function is called when the mod is loaded.
 // It should return a ModMeta struct with the mod's information.
 ModMeta __stdcall GetModInfo() {
