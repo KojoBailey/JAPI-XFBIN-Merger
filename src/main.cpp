@@ -1,6 +1,8 @@
 #include "main.h"
 
-#include "nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
+#include <filesystem>
+#include <fstream>
 
 // This function is called when the mod is loaded.
 // It should return a ModMeta struct with the mod's information.
@@ -8,88 +10,110 @@ ModMeta __stdcall GetModInfo() {
     static ModMeta meta = {
         "PlayerColorParam Reader", // Name
         "PlayerColorParam", // GUID
-        "1.0.0", // Version
+        "ALPHA", // Version
         "Kojo Bailey" // Author
     };
 
     return meta;
 }
 
+fs::path json_directory{"japi/mods/PlayerColorParam"};
+
 union U128 {
-    __uint128_t value;
+    u128 value;
     struct {
-        std::int64_t low;   // Lower 64 bits
-        std::int64_t high;  // Upper 64 bits
+        i64 low;   // Lower 64 bits
+        i64 high;  // Upper 64 bits
     };
     struct {
-        std::int32_t part0;  // Lower 32 bits
-        std::int32_t part1;  // Lower-middle 32 bits
-        std::int32_t part2;  // Upper-middle 32 bits
-        std::int32_t part3;  // Upper 32 bits
-        
+        i32 part0;  // Lower 32 bits
+        i32 part1;  // Lower-middle 32 bits
+        i32 part2;  // Upper-middle 32 bits
+        i32 part3;  // Upper 32 bits
     };
 };
 
 template<typename T>
-T get_offset_value(std::uint64_t* buffer, int size) {
-    return *reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(buffer) + size);
+T get_offset_value(u64* start, int bytes_forward) {
+    return *reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(start) + bytes_forward);
 }
 template<typename T>
-T* get_offset_ptr(std::uint64_t* buffer, int size) {
-    return reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(buffer) + size);
+T* get_offset_ptr(u64* start, int bytes_forward) {
+    return reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(start) + bytes_forward);
 }
 
-typedef std::uint64_t*(__fastcall* Parse_PlayerColorParam_t)(std::uint64_t*);
+typedef u64*(__fastcall* Parse_PlayerColorParam_t)(u64*);
 Parse_PlayerColorParam_t Parse_PlayerColorParam_original;
 
-std::uint64_t* __fastcall Parse_PlayerColorParam(std::uint64_t* a1) {
-    std::uint64_t* buffer;
-    std::uint32_t entry_count;
-    std::uint64_t* first_pointer;
-    std::uint64_t* first_entry_start;
-    std::uint64_t* entry_start;
+u64* __fastcall Parse_PlayerColorParam(u64* a1) {
+    // Variable definitions.
+    u64* result;            // To be returned at end of function.
+    u64* nuccBinary_data;   // Data from XFBIN chunk, exactly as-is.
+    u32 entry_count;        // Number of entries.
+    u64* note_pointer;      // Initial pointer, pointing to start of entries. Can be used to skip over notes.
+    u64* entries_start;     // Start of entries.
     struct {
-        const char* character_id;
-        std::uint32_t encrypted_character_id;
-        std::uint32_t rgb;
-    } entry;
-    U128 v12;
-    __int128_t rgb_float;
-    __uint128_t* v11;
+        u64* start;                 // Start of entry.
+        struct {
+            u64* pointer;           // Pointer to character ID later in the data.
+            const char* string;     // Character's ID (e.g. "1jnt01").
+            u32 encrypted;          // Encrypted by CRC-32.
+        } character_id;             // Character's ID (e.g. "1jnt01").
+        u32 rgb;                    // Red, Green, Blue colour value.
+        i128 rgb_float;             // RGB value as a float.
+    } entry;                // All data belonging to only one entry.
+    U128 buffer;
+    u128* buffer_ptr;
 
-    buffer = Load_nuccBinary("data/param/battle/PlayerColorParam.bin.xfbin", "PlayerColorParam");
-    if (buffer) {
-        entry_count = get_offset_value<std::uint32_t>(buffer, 4);
-        first_pointer = get_offset_ptr<std::uint64_t>(buffer, 8);
-        if (first_pointer) {
-            buffer = get_offset_ptr<std::uint64_t>(first_pointer, *first_pointer);
-            first_entry_start = buffer;
-            if (buffer) {
+    // Load data from XFBIN file.
+    nuccBinary_data = Load_nuccBinary("data/param/battle/PlayerColorParam.bin.xfbin", "PlayerColorParam");
+    result = nuccBinary_data; // In case the pointer is 0.
+
+    if (nuccBinary_data) {
+        entry_count = get_offset_value<u32>(nuccBinary_data, 4);
+        note_pointer = get_offset_ptr<u64>(nuccBinary_data, 8); // 8 for all vanilla files.
+        if (note_pointer) {
+            entries_start = get_offset_ptr<u64>(note_pointer, *note_pointer);
+
+            // Iterate through each entry.
+            if (entries_start) {
                 for (int i = 0; i < entry_count; i++) {
-                    entry_start = get_offset_ptr<std::uint64_t>(first_entry_start, 24 * i);
-                    if (*entry_start) {
-                        entry.character_id = get_offset_ptr<const char>(entry_start, *entry_start); // First value in entry_start is a pointer.
+                    entry.start = get_offset_ptr<u64>(entries_start, 24 * i);
+                    entry.character_id.pointer = entry.start;
+
+                    // Get character ID from pointer.
+                    if (*entry.start) {
+                        entry.character_id.string = get_offset_ptr<const char>(entry.character_id.pointer, *entry.character_id.pointer);
                     } else {
-                        entry.character_id = 0;
+                        entry.character_id.string = 0;
                     }
-                    entry.encrypted_character_id = NUCC_Encrypt(entry.character_id);
-                    entry.rgb = (get_offset_value<std::uint32_t>(entry_start, 20) | ((get_offset_value<std::uint32_t>(entry_start, 16) | (get_offset_value<std::uint32_t>(entry_start, 12) << 8)) << 8)) << 8;
-                    v12.part0 = entry.encrypted_character_id;
-                    v12.part1 = get_offset_value<std::uint32_t>(entry_start, 8); // Costume index
-                    buffer = (std::uint64_t*)RGBA_Int_to_Float((float*)&rgb_float, entry.rgb | 0xFFu);
-                    v11 = (__uint128_t*)a1[5];
-                    if ((__uint128_t*)a1[6] == v11) {
-                        buffer = (std::uint64_t*)sub_47EB58(a1 + 1, v11, &v12.value);
+                    // Encrypt character ID.
+                    entry.character_id.encrypted = NUCC_Encrypt(entry.character_id.string);
+
+                    // Get RGB colour and convert to float.
+                    entry.rgb = 
+                        (get_offset_value<u32>(entry.start, 20) | 
+                        ((get_offset_value<u32>(entry.start, 16) | 
+                        (get_offset_value<u32>(entry.start, 12) 
+                        << 8)) << 8)) << 8;
+                    result = (u64*)RGBA_Int_to_Float((float*)&entry.rgb_float, entry.rgb | 0xFFu);
+
+                    // Buffer data into whatever for use in-game.
+                    buffer.part0 = entry.character_id.encrypted;
+                    buffer.part1 = get_offset_value<u32>(entry.start, 8); // Costume index
+                    buffer_ptr = (u128*)a1[5];
+                    if ((u128*)a1[6] == buffer_ptr) {
+                        result = (u64*)sub_47EB58(a1 + 1, buffer_ptr, &buffer.value);
                     } else {
-                        *v11 = v12.value;
-                        v11[1] = rgb_float;
+                        *buffer_ptr = buffer.value;
+                        buffer_ptr[1] = entry.rgb_float;
                         a1[5] += 32;
                     }
                 }
             }
         }
     }
-    return buffer;
+    return result;
 }
 
 Hook Parse_PlayerColorParam_hook = {
@@ -101,8 +125,6 @@ Hook Parse_PlayerColorParam_hook = {
 
 // This function is called when the mod is loaded.
 void __stdcall ModInit() {
-    JAPI_LogInfo("Initialised!");
-
     if(!JAPI_HookASBRFunction(&Parse_PlayerColorParam_hook))
         JAPI_LogError("Failed to hook Parse_PlayerColorParam!");
     if(!JAPI_HookASBRFunction(&Load_nuccBinary_hook))
@@ -114,5 +136,10 @@ void __stdcall ModInit() {
     if(!JAPI_HookASBRFunction(&sub_47EB58_hook))
         JAPI_LogError("Failed to hook sub_47EB58!");
 
-    JAPI_LogInfo("Applied patches.");
+    // Create directory for JSON files if not already existing.
+    if (!fs::exists(json_directory))
+        fs::create_directory(json_directory);
+
+    JAPI_LogInfo("Loaded!");
+    JAPI_LogWarn("This plugin will only work up until the July 2024 version of JoJoAPI.");
 }

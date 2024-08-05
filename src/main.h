@@ -2,6 +2,7 @@
 
 #define EXPORT extern "C" __declspec(dllexport)
 
+#include "types.h"
 #include <JojoAPI.h>
 #include <cstdint>
 
