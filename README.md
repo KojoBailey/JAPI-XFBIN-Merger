@@ -1,10 +1,8 @@
 
-# Jojo API Example Plugin
+# PlayerColorParam JSON
 
-This is an example plugin for the Jojo API.
-You can use this as a starting point for your own plugins!
+This is a plugin for JojoAPI that allows PlayerColorParam data to be read from a JSON file rather than an XFBIN, making it much easier to edit by hand and merge with other mods.
 
 ## Installation
 
-1. Run `git clone --recurse-submodules -j8 https://github.com/Kapilarny/JAPI_ExamplePlugin`
-2. Build with cmake and enjoy!
+TBA
