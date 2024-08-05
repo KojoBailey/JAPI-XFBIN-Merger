@@ -1,0 +1,3 @@
+[submodule "external/japi"]
+	path = external/japi
+	url = https://github.com/Kapilarny/JAPI
