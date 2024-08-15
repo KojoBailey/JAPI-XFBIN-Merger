@@ -5,9 +5,12 @@
 #include <JojoAPI.h>
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <unordered_map>
+#include <sstream>
 
 namespace fs = std::filesystem;
 using JSON = nlohmann::ordered_json;

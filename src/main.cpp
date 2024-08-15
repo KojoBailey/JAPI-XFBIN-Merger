@@ -15,7 +15,7 @@ ModMeta __stdcall GetModInfo() {
 
 fs::path json_directory{"japi\\mods\\PlayerColorParam"};
 
-JSON json;
+JSON json_data;
 
 union U128 {
     u128 value;
@@ -40,6 +40,24 @@ T* get_offset_ptr(u64* start, int bytes_forward) {
     return reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(start) + bytes_forward);
 }
 
+struct RGB {
+    u32 r, g, b;
+};
+RGB hex_to_rgb(std::string hex_str) {
+    std::erase(hex_str, '#');
+    std::stringstream buffer;
+    u32 r, g, b;
+    buffer << std::hex << hex_str.substr(0, 2);
+    buffer >> r;
+    buffer.clear();
+    buffer << std::hex << hex_str.substr(2, 2);
+    buffer >> g;
+    buffer.clear();
+    buffer << std::hex << hex_str.substr(4, 2);
+    buffer >> b;
+    return {r, g, b};
+}
+
 typedef u64*(__fastcall* Parse_PlayerColorParam_t)(u64*);
 Parse_PlayerColorParam_t Parse_PlayerColorParam_original;
 
@@ -57,11 +75,15 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
             const char* string;     // Character's ID (e.g. "1jnt01").
             u32 encrypted;          // Encrypted by CRC-32.
         } character_id;             // Character's ID (e.g. "1jnt01").
+        u32 costume_index;          // Costume number (e.g. 3 = Special C).
         u32 rgb;                    // Red, Green, Blue colour value.
         i128 rgb_float;             // RGB value as a float.
     } entry;                // All data belonging to only one entry.
     U128 buffer;
     u128* buffer_ptr;
+    std::string alt_id;
+    RGB color;
+    std::unordered_map<std::string, int> tint_tracker;
 
     // Load data from XFBIN file.
     nuccBinary_data = Load_nuccBinary("data/param/battle/PlayerColorParam.bin.xfbin", "PlayerColorParam");
@@ -88,17 +110,44 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
                     // Encrypt character ID.
                     entry.character_id.encrypted = NUCC_Encrypt(entry.character_id.string);
 
-                    // Get RGB colour and convert to float.
+                    // Get costume index and alt ID.
+                    entry.costume_index = get_offset_value<u32>(entry.start, 8);
+                    alt_id = entry.character_id.string;
+                    alt_id.replace(4, 1, std::to_string(entry.costume_index));
+                    alt_id += "col" + std::to_string(tint_tracker[alt_id]++);
+                    JAPI_LogInfo(alt_id);
+                    auto& json_rgb = json_data[alt_id];
+
+                    // Load and apply RGB data from JSON.
+                    if (json_rgb.empty()) {
+                        // Load from XFBIN data.
+                        color.b = get_offset_value<u32>(entry.start, 20);
+                        color.g = get_offset_value<u32>(entry.start, 16);
+                        color.r = get_offset_value<u32>(entry.start, 12);
+                    } else {
+                        // Load from JSON data.
+                        if (json_rgb.type() == JSON::value_t::string) {
+                            color = hex_to_rgb(json_rgb);
+                        } else if (json_rgb.type() == JSON::value_t::array) {
+                            color.r = json_rgb[0];
+                            color.g = json_rgb[1];
+                            color.b = json_rgb[2];
+                        } else {
+                            JAPI_LogError("Invalid RGB input. Must be hex code or integer array.");
+                            return 0;
+                        }
+                    }
+
                     entry.rgb = 
-                        (get_offset_value<u32>(entry.start, 20) | 
-                        ((get_offset_value<u32>(entry.start, 16) | 
-                        (get_offset_value<u32>(entry.start, 12) 
+                        (color.b | 
+                        ((color.g | 
+                        (color.r 
                         << 8)) << 8)) << 8;
                     result = (u64*)RGBA_Int_to_Float((float*)&entry.rgb_float, entry.rgb | 0xFFu);
 
                     // Buffer data into whatever for use in-game.
                     buffer.part0 = entry.character_id.encrypted;
-                    buffer.part1 = get_offset_value<u32>(entry.start, 8); // Costume index
+                    buffer.part1 = entry.costume_index;
                     buffer_ptr = (u128*)a1[5];
                     if ((u128*)a1[6] == buffer_ptr) {
                         result = (u64*)sub_47EB58(a1 + 1, buffer_ptr, &buffer.value);
@@ -161,6 +210,8 @@ void __stdcall ModInit() {
     priority_file.close();
 
     // Merge JSON files together.
+    std::ifstream json_file_buffer(json_directory / "test.json");
+    json_data = JSON::parse(json_file_buffer);
 
     JAPI_LogInfo("Loaded!");
     JAPI_LogWarn("This plugin will only work up until the July 2024 version of JoJoAPI.");
