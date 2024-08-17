@@ -9,8 +9,13 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <unordered_map>
 #include <sstream>
+#include <format>
+
+#include <type_traits>
+#include <cstdint>
 
 namespace fs = std::filesystem;
 using JSON = nlohmann::ordered_json;
@@ -45,10 +50,10 @@ std::uint64_t __fastcall NUCC_Encrypt(const char* a1) {
     return NUCC_Encrypt_original(a1);
 }
 
-typedef float*(__fastcall* RGBA_Int_to_Float_t)(float*, unsigned int);
+typedef float*(__fastcall* RGBA_Int_to_Float_t)(float*, int);
 RGBA_Int_to_Float_t RGBA_Int_to_Float_original;
 
-float* __fastcall RGBA_Int_to_Float(float* float_ref, unsigned int rgba) {
+float* __fastcall RGBA_Int_to_Float(float* float_ref, int rgba) {
     return RGBA_Int_to_Float_original(float_ref, rgba);
 }
 
