@@ -34,7 +34,44 @@ using i8 = std::int8_t;
 EXPORT ModMeta __stdcall GetModInfo();
 EXPORT void __stdcall ModInit();
 
+// Custom stuff:
+
+template<typename T>
+T get_offset_value(u64* start, int bytes_forward) {
+    return *reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(start) + bytes_forward);
+}
+template<typename T>
+T* get_offset_ptr(u64* start, int bytes_forward) {
+    return reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(start) + bytes_forward);
+}
+
+struct RGB {
+    u32 red, green, blue, rgb;
+
+    void consolidate() {
+        rgb = (blue | ((green | (red << 8)) << 8)) << 8;
+    }
+
+    RGB hex_to_rgb(std::string hex_str) {
+        std::erase(hex_str, '#');
+        std::stringstream buffer;
+        buffer << std::hex << hex_str.substr(0, 2);
+        buffer >> red;
+        buffer.clear();
+        buffer << std::hex << hex_str.substr(2, 2);
+        buffer >> green;
+        buffer.clear();
+        buffer << std::hex << hex_str.substr(4, 2);
+        buffer >> blue;
+        this->consolidate();
+        return *this;
+    }
+};
+
 // Unmodified functions:
+
+typedef u64*(__fastcall* Parse_PlayerColorParam_t)(u64*);
+Parse_PlayerColorParam_t Parse_PlayerColorParam_original;
 
 typedef std::uint64_t*(__fastcall* Load_nuccBinary_t)(const char*, const char*);
 Load_nuccBinary_t Load_nuccBinary_original;

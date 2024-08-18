@@ -4,53 +4,17 @@
 // It should return a ModMeta struct with the mod's information.
 ModMeta __stdcall GetModInfo() {
     static ModMeta meta = {
-        "PlayerColorParam Reader", // Name
-        "PlayerColorParam", // GUID
-        "ALPHA", // Version
-        "Kojo Bailey" // Author
+        "PlayerColorParam JSON Loader", // Name
+        "PlayerColorParam_JSON_Loader", // GUID
+        "1.0.0",                        // Version
+        "Kojo Bailey"                   // Author
     };
 
     return meta;
 }
 
 fs::path json_directory{"japi\\mods\\PlayerColorParam"};
-
 JSON json_data;
-
-template<typename T>
-T get_offset_value(u64* start, int bytes_forward) {
-    return *reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(start) + bytes_forward);
-}
-template<typename T>
-T* get_offset_ptr(u64* start, int bytes_forward) {
-    return reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(start) + bytes_forward);
-}
-
-struct RGB {
-    u32 red, green, blue, rgb;
-
-    void consolidate() {
-        rgb = (blue | ((green | (red << 8)) << 8)) << 8;
-    }
-
-    RGB hex_to_rgb(std::string hex_str) {
-        std::erase(hex_str, '#');
-        std::stringstream buffer;
-        buffer << std::hex << hex_str.substr(0, 2);
-        buffer >> red;
-        buffer.clear();
-        buffer << std::hex << hex_str.substr(2, 2);
-        buffer >> green;
-        buffer.clear();
-        buffer << std::hex << hex_str.substr(4, 2);
-        buffer >> blue;
-        this->consolidate();
-        return *this;
-    }
-};
-
-typedef u64*(__fastcall* Parse_PlayerColorParam_t)(u64*);
-Parse_PlayerColorParam_t Parse_PlayerColorParam_original;
 
 u64* __fastcall Parse_PlayerColorParam(u64* a1) {
     // Variable definitions.
@@ -158,8 +122,16 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
             a1[5] += 32;
         }
     }
-
+    JAPI_LogDebug(std::format("Result: {:#010x}", (u64)result));
     return result;
+}
+
+typedef u64*(__fastcall* sub_47F250_t)(u64*, u64*, i32);
+sub_47F250_t sub_47F250_original;
+
+u64* __fastcall sub_47F250(u64* a1, u64* a2, i32 a3) {
+    JAPI_LogInfo(std::format("a1 = {:#010x}\na2 = {:#010x}\n", (u64)a1, (u64)a2));
+    return sub_47F250_original(a1, a2, a3);
 }
 
 Hook Parse_PlayerColorParam_hook = {
@@ -167,6 +139,13 @@ Hook Parse_PlayerColorParam_hook = {
     (void*)Parse_PlayerColorParam, // Address of our hook function
     (void**)&Parse_PlayerColorParam_original, // Address of the variable that will store the original function address
     "Parse_PlayerColorParam" // Name of the function we want to hook
+};
+
+Hook sub_47F250_hook = {
+    (void*)0x47F250, // Address of the function we want to hook
+    (void*)sub_47F250, // Address of our hook function
+    (void**)&sub_47F250_original, // Address of the variable that will store the original function address
+    "sub_47F250" // Name of the function we want to hook
 };
 
 // This function is called when the mod is loaded.
@@ -181,6 +160,8 @@ void __stdcall ModInit() {
         JAPI_LogError("Failed to hook RGBA_Int_to_Float!");
     if(!JAPI_HookASBRFunction(&sub_47EB58_hook))
         JAPI_LogError("Failed to hook sub_47EB58!");
+    if(!JAPI_HookASBRFunction(&sub_47F250_hook))
+        JAPI_LogError("Failed to hook sub_47F250!");
 
     // Create directory for JSON files if not already existing.
     if (!fs::exists(json_directory))
