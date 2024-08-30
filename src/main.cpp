@@ -40,8 +40,6 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
         kojo::binary data;          // Data from XFBIN chunk, exactly as-is.
         u32 entry_count;            // Number of entries.
         u64 note_pointer;           // Initial pointer, pointing to start of entries. Can be used to skip over notes.
-        u64* entries_start;         // Start of all entries.
-        u64* entry_start;           // Start of one entry.
         u64 character_id_pointer;   // Pointer to character ID later in the data.
         std::string character_id;   // Character's ID (e.g. "1jnt01").
         RGB color;
