@@ -4,3 +4,6 @@
 [submodule "external/binary"]
 	path = external/binary
 	url = https://github.com/KojoBailey/binary-cpp-library
+[submodule "external/japi"]
+	path = external/japi
+	url = https://github.com/Kapilarny/JAPI
