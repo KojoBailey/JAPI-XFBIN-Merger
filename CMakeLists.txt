@@ -14,4 +14,5 @@ add_subdirectory(external/nlohmann)
 
 target_include_directories(${PROJECT_NAME} PRIVATE "src" "external/japi/src/exports")
 target_include_directories(${PROJECT_NAME} PRIVATE "src" "external/nlohmann/include")
+target_include_directories(${PROJECT_NAME} PRIVATE "src" "external/binary/binary")
 target_link_libraries(${PROJECT_NAME} PRIVATE d3dcompiler_47)

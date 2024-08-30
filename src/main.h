@@ -4,6 +4,7 @@
 
 #include <JojoAPI.h>
 #include <nlohmann/json.hpp>
+#include <binary.hpp>
 
 #include <algorithm>
 #include <cstdint>
@@ -34,15 +35,44 @@ using i8 = std::int8_t;
 EXPORT ModMeta __stdcall GetModInfo();
 EXPORT void __stdcall ModInit();
 
+ModMeta __stdcall GetModInfo() {
+    static ModMeta meta = {
+        "PlayerColorParam JSON Loader", // Name
+        "PlayerColorParam_JSON_Loader", // GUID
+        "1.0.0",                        // Version
+        "Kojo Bailey"                   // Author
+    };
+
+    return meta;
+}
+
+#define DEBUG_BUILD true
+
+#define JFATAL(message, ...) JAPI_LogFatal(message, ##__VA_ARGS__);
+#define JERROR(message, ...) JAPI_LogError(message, ##__VA_ARGS__);
+#define JWARN(message, ...) JAPI_LogWarn(message, ##__VA_ARGS__);
+#define JINFO(message, ...) JAPI_LogInfo(message, ##__VA_ARGS__);
+
+#if DEBUG_BUILD == true
+#define JDEBUG(message, ...) JAPI_LogDebug(message, ##__VA_ARGS__);
+#define JTRACE(message, ...) JAPI_LogTrace(message, ##__VA_ARGS__);
+#else
+#define JDEBUG(message, ...)
+#define JTRACE(message, ...)
+#endif
+
+fs::path json_directory{"japi\\merging\\param\\battle\\PlayerColorParam"};
+JSON json_data;
+
 // Custom stuff:
 
 template<typename T>
-T get_offset_value(u64* start, int bytes_forward) {
-    return *reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(start) + bytes_forward);
-}
-template<typename T>
 T* get_offset_ptr(u64* start, int bytes_forward) {
     return reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(start) + bytes_forward);
+}
+template<typename T>
+T get_offset_value(u64* start, int bytes_forward) {
+    return *reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(start) + bytes_forward);
 }
 
 struct RGB {
