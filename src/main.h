@@ -38,14 +38,14 @@ ModMeta __stdcall GetModInfo() {
 
 // #define DEBUG_BUILD
 
-#define JFATAL(message, ...) JAPI_LogFatal(std::format(message, ##__VA_ARGS__).c_str(), ##__VA_ARGS__)
-#define JERROR(message, ...) JAPI_LogError(std::format(message, ##__VA_ARGS__).c_str(), ##__VA_ARGS__)
-#define JWARN(message, ...) JAPI_LogWarn(std::format(message, ##__VA_ARGS__).c_str(), ##__VA_ARGS__)
-#define JINFO(message, ...) JAPI_LogInfo(std::format(message, ##__VA_ARGS__).c_str(), ##__VA_ARGS__)
+#define JFATAL(message, ...) JAPI_LogFatal(std::format(message, ##__VA_ARGS__))
+#define JERROR(message, ...) JAPI_LogError(std::format(message, ##__VA_ARGS__))
+#define JWARN(message, ...) JAPI_LogWarn(std::format(message, ##__VA_ARGS__))
+#define JINFO(message, ...) JAPI_LogInfo(std::format(message, ##__VA_ARGS__))
 
 #ifdef DEBUG_BUILD
-    #define JDEBUG(message, ...) JAPI_LogDebug(std::format(message, ##__VA_ARGS__).c_str(), ##__VA_ARGS__)
-    #define JTRACE(message, ...) JAPI_LogTrace(std::format(message, ##__VA_ARGS__).c_str(), ##__VA_ARGS__)
+    #define JDEBUG(message, ...) JAPI_LogDebug(std::format(message, ##__VA_ARGS__))
+    #define JTRACE(message, ...) JAPI_LogTrace(std::format(message, ##__VA_ARGS__))
 #else
     #define JDEBUG(message, ...)
     #define JTRACE(message, ...)
