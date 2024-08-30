@@ -4,6 +4,7 @@
 
 #include <JojoAPI.h>
 #include <nlohmann/json.hpp>
+#define USE_BINARY_TYPES
 #include <binary.hpp>
 
 #include <algorithm>
@@ -15,22 +16,11 @@
 #include <sstream>
 #include <format>
 
-#include <type_traits>
-#include <cstdint>
-
 namespace fs = std::filesystem;
 using JSON = nlohmann::ordered_json;
 
 using u128 = __uint128_t;
-using u64 = std::uint64_t;
-using u32 = std::uint32_t;
-using u16 = std::uint16_t;
-using u8 = std::uint8_t;
 using i128 = __int128_t;
-using i64 = std::int64_t;
-using i32 = std::int32_t;
-using i16 = std::int16_t;
-using i8 = std::int8_t;
 
 EXPORT ModMeta __stdcall GetModInfo();
 EXPORT void __stdcall ModInit();
@@ -46,115 +36,27 @@ ModMeta __stdcall GetModInfo() {
     return meta;
 }
 
-#define DEBUG_BUILD true
+#define DEBUG_BUILD
 
-#define JFATAL(message, ...) JAPI_LogFatal(message, ##__VA_ARGS__);
-#define JERROR(message, ...) JAPI_LogError(message, ##__VA_ARGS__);
-#define JWARN(message, ...) JAPI_LogWarn(message, ##__VA_ARGS__);
-#define JINFO(message, ...) JAPI_LogInfo(message, ##__VA_ARGS__);
+#define JFATAL(message, ...) JAPI_LogFatal(std::format(message, ##__VA_ARGS__).c_str(), ##__VA_ARGS__)
+#define JERROR(message, ...) JAPI_LogError(std::format(message, ##__VA_ARGS__).c_str(), ##__VA_ARGS__)
+#define JWARN(message, ...) JAPI_LogWarn(std::format(message, ##__VA_ARGS__).c_str(), ##__VA_ARGS__)
+#define JINFO(message, ...) JAPI_LogInfo(std::format(message, ##__VA_ARGS__).c_str(), ##__VA_ARGS__)
 
-#if DEBUG_BUILD == true
-#define JDEBUG(message, ...) JAPI_LogDebug(message, ##__VA_ARGS__);
-#define JTRACE(message, ...) JAPI_LogTrace(message, ##__VA_ARGS__);
+#ifdef DEBUG_BUILD
+    #define JDEBUG(message, ...) JAPI_LogDebug(std::format(message, ##__VA_ARGS__).c_str(), ##__VA_ARGS__)
+    #define JTRACE(message, ...) JAPI_LogTrace(std::format(message, ##__VA_ARGS__).c_str(), ##__VA_ARGS__)
 #else
-#define JDEBUG(message, ...)
-#define JTRACE(message, ...)
+    #define JDEBUG(message, ...)
+    #define JTRACE(message, ...)
 #endif
 
-fs::path json_directory{"japi\\merging\\param\\battle\\PlayerColorParam"};
-JSON json_data;
-
-// Custom stuff:
-
-template<typename T>
-T* get_offset_ptr(u64* start, int bytes_forward) {
-    return reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(start) + bytes_forward);
-}
-template<typename T>
-T get_offset_value(u64* start, int bytes_forward) {
-    return *reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(start) + bytes_forward);
+// Function definitions:
+template<typename RETURN, typename... PARAMS> auto define_function(long long address) {
+    return (RETURN(__fastcall*)(PARAMS...))(JAPI_GetASBRModuleBase() + address);
 }
 
-struct RGB {
-    u32 red, green, blue, rgb;
-
-    void consolidate() {
-        rgb = (blue | ((green | (red << 8)) << 8)) << 8;
-    }
-
-    RGB hex_to_rgb(std::string hex_str) {
-        std::erase(hex_str, '#');
-        std::stringstream buffer;
-        buffer << std::hex << hex_str.substr(0, 2);
-        buffer >> red;
-        buffer.clear();
-        buffer << std::hex << hex_str.substr(2, 2);
-        buffer >> green;
-        buffer.clear();
-        buffer << std::hex << hex_str.substr(4, 2);
-        buffer >> blue;
-        this->consolidate();
-        return *this;
-    }
-};
-
-// Unmodified functions:
-
-typedef u64*(__fastcall* Parse_PlayerColorParam_t)(u64*);
-Parse_PlayerColorParam_t Parse_PlayerColorParam_original;
-
-typedef std::uint64_t*(__fastcall* Load_nuccBinary_t)(const char*, const char*);
-Load_nuccBinary_t Load_nuccBinary_original;
-
-std::uint64_t* __fastcall Load_nuccBinary(const char* a1, const char* a2) {
-    return Load_nuccBinary_original(a1, a2);
-}
-
-typedef std::uint64_t(__fastcall* NUCC_Encrypt_t)(const char*);
-NUCC_Encrypt_t NUCC_Encrypt_original;
-
-std::uint64_t __fastcall NUCC_Encrypt(const char* a1) {
-    return NUCC_Encrypt_original(a1);
-}
-
-typedef float*(__fastcall* RGBA_Int_to_Float_t)(float*, int);
-RGBA_Int_to_Float_t RGBA_Int_to_Float_original;
-
-float* __fastcall RGBA_Int_to_Float(float* float_ref, int rgba) {
-    return RGBA_Int_to_Float_original(float_ref, rgba);
-}
-
-typedef float*(__fastcall* sub_47EB58_t)(std::uint64_t*, __uint128_t*, __uint128_t*);
-sub_47EB58_t sub_47EB58_original;
-
-float* __fastcall sub_47EB58(std::uint64_t* a1, __uint128_t* a2, __uint128_t* a3) {
-    return sub_47EB58_original(a1, a2, a3);
-}
-
-Hook Load_nuccBinary_hook = {
-    (void*)0x671C30, // Address of the function we want to hook
-    (void*)Load_nuccBinary, // Address of our hook function
-    (void**)&Load_nuccBinary_original, // Address of the variable that will store the original function address
-    "Load_nuccBinary" // Name of the function we want to hook
-};
-
-Hook NUCC_Encrypt_hook = {
-    (void*)0x6C92A0, // Address of the function we want to hook
-    (void*)NUCC_Encrypt, // Address of our hook function
-    (void**)&NUCC_Encrypt_original, // Address of the variable that will store the original function address
-    "NUCC_Encrypt" // Name of the function we want to hook
-};
-
-Hook RGBA_Int_to_Float_hook = {
-    (void*)0x6DC840, // Address of the function we want to hook
-    (void*)RGBA_Int_to_Float, // Address of our hook function
-    (void**)&RGBA_Int_to_Float_original, // Address of the variable that will store the original function address
-    "RGBA_Int_to_Float" // Name of the function we want to hook
-};
-
-Hook sub_47EB58_hook = {
-    (void*)0x47EB58, // Address of the function we want to hook
-    (void*)sub_47EB58, // Address of our hook function
-    (void**)&sub_47EB58_original, // Address of the variable that will store the original function address
-    "sub_47EB58" // Name of the function we want to hook
-};
+auto Load_nuccBinary = define_function<u64*, const char*, const char*>(0x671C30);
+auto NUCC_Encrypt = define_function<u64, const char*>(0x6C92A0);
+auto RGBA_Int_to_Float = define_function<float*, float*, int>(0x6DC840);
+auto sub_47EB58 = define_function<float*, u64*, u128*, u128*>(0x47EB58);

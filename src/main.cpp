@@ -1,5 +1,34 @@
 #include "main.h"
 
+fs::path json_directory{"japi\\merging\\param\\battle\\PlayerColorParam"};
+JSON json_data;
+
+struct RGB {
+    u32 red, green, blue, rgb;
+
+    void consolidate() {
+        rgb = (blue | ((green | (red << 8)) << 8)) << 8;
+    }
+
+    RGB hex_to_rgb(std::string hex_str) {
+        std::erase(hex_str, '#');
+        std::stringstream buffer;
+        buffer << std::hex << hex_str.substr(0, 2);
+        buffer >> red;
+        buffer.clear();
+        buffer << std::hex << hex_str.substr(2, 2);
+        buffer >> green;
+        buffer.clear();
+        buffer << std::hex << hex_str.substr(4, 2);
+        buffer >> blue;
+        this->consolidate();
+        return *this;
+    }
+};
+
+typedef u64*(__fastcall* Parse_PlayerColorParam_t)(u64*);
+Parse_PlayerColorParam_t Parse_PlayerColorParam_original;
+
 u64* __fastcall Parse_PlayerColorParam(u64* a1) {
     u64* result;            // To be returned at end of function.
     std::string key_buffer;
@@ -8,13 +37,13 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
     std::unordered_map<std::string, int> tint_tracker;
 
     struct Input_Data {
-        kojo::binary data;       // Data from XFBIN chunk, exactly as-is.
+        kojo::binary data;          // Data from XFBIN chunk, exactly as-is.
         u32 entry_count;            // Number of entries.
-        u64 note_pointer;          // Initial pointer, pointing to start of entries. Can be used to skip over notes.
+        u64 note_pointer;           // Initial pointer, pointing to start of entries. Can be used to skip over notes.
         u64* entries_start;         // Start of all entries.
         u64* entry_start;           // Start of one entry.
-        u64* character_id_pointer;  // Pointer to character ID later in the data.
-        const char* character_id;   // Character's ID (e.g. "1jnt01").
+        u64 character_id_pointer;   // Pointer to character ID later in the data.
+        std::string character_id;   // Character's ID (e.g. "1jnt01").
         RGB color;
         u32 costume_index;
     } input;
@@ -28,47 +57,44 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
 
     // Load data from XFBIN file.
         input.data.load(Load_nuccBinary("data/param/battle/PlayerColorParam.bin.xfbin", "PlayerColorParam"));
-        if (!input.data.data) {
-            JAPI_LogError("`PlayerColorParam.bin.xfbin` data could not be loaded.");
+        if (!input.data.data()) {
+            JERROR("`PlayerColorParam.bin.xfbin` data could not be loaded.");
             return 0;
         }
+        JTRACE("Loaded PlayerColorParam data from XFBIN.");
 
-        input.data.move(4);
-        input.entry_count = input.data.read<u32>(std::endian::big);
-        input.note_pointer = input.data.read<u64>(std::endian::big); // 8 for all vanilla files.
-        if (!input.note_pointer) {
-            JAPI_LogError("`PlayerColorParam.bin.xfbin` is missing an initial pointer.");
+        input.data.change_pos(4); // Version (should be 1000)
+        input.entry_count = input.data.read<u32>(kojo::endian::little);
+        JTRACE("Entry Count from XFBIN: {}", input.entry_count);
+        input.note_pointer = input.data.read<u64>(kojo::endian::little); // 8 for all vanilla files.
+        if (input.note_pointer == 0) {
+            JERROR("`PlayerColorParam.bin.xfbin` is missing an initial pointer.");
             return 0;
         }
 
         // Iterate through each entry.
-        input.entries_start = get_offset_ptr<u64>(&input.note_pointer, input.note_pointer);
         for (int i = 0; i < input.entry_count; i++) {
-            input.entry_start = get_offset_ptr<u64>(input.entries_start, 24 * i);
-
             // Get character ID from pointer.
-            input.character_id_pointer = input.entry_start;
-            if (*input.entry_start) {
-                input.character_id = get_offset_ptr<const char>(input.character_id_pointer, *input.character_id_pointer);
-            } else {
-                input.character_id = 0;
-                continue;
-            }
+            input.character_id_pointer = input.data.read<u64>(kojo::endian::little);
+            if (input.character_id_pointer != 0)
+                input.character_id = input.data.read<string>(0, input.character_id_pointer - 8);
+            else
+                input.character_id = "";
 
             // Get costume index and alt ID.
-            input.costume_index = get_offset_value<u32>(input.entry_start, 8);
+            input.costume_index = input.data.read<u32>(kojo::endian::little);
             key_buffer = input.character_id;
             key_buffer.replace(4, 1, std::to_string(input.costume_index));
             key_buffer += "col" + std::to_string(tint_tracker[key_buffer]++);
             entries[key_buffer].costume_index = input.costume_index;
 
             // Encrypt character ID.
-            entries[key_buffer].encrypted_character_id = NUCC_Encrypt(input.character_id);
+            entries[key_buffer].encrypted_character_id = NUCC_Encrypt(input.character_id.c_str());
 
             // Convert colour data to floats.
-            input.color.blue = get_offset_value<u8>(input.entry_start, 20);
-            input.color.green = get_offset_value<u8>(input.entry_start, 16);
-            input.color.red = get_offset_value<u8>(input.entry_start, 12);
+            input.color.red = input.data.read<u32>(kojo::endian::little);
+            input.color.green = input.data.read<u32>(kojo::endian::little);
+            input.color.blue = input.data.read<u32>(kojo::endian::little);
             input.color.consolidate();
             result = (u64*)RGBA_Int_to_Float((float*)&entries[key_buffer].rgba_float, input.color.rgb | 0xFFu);
         }
@@ -78,13 +104,13 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
             key_buffer = item.key();
             auto& json_rgb = json_data[key_buffer];
             if (json_rgb.type() == JSON::value_t::string) {
-                input.character_id = (key_buffer.substr(0, 4) + "0" + key_buffer.at(5)).c_str();
-                entries[key_buffer].encrypted_character_id = NUCC_Encrypt(input.character_id);
+                input.character_id = key_buffer.substr(0, 4) + "0" + key_buffer.at(5);
+                entries[key_buffer].encrypted_character_id = NUCC_Encrypt(input.character_id.c_str());
                 entries[key_buffer].costume_index = key_buffer.at(4) - '0';
                 input.color.hex_to_rgb(json_rgb);
                 result = (u64*)RGBA_Int_to_Float((float*)&entries[key_buffer].rgba_float, input.color.rgb | 0xFFu);
             } else {
-                JAPI_LogError("Invalid RGB input. Must be a valid 6-digit hex code.");
+                JERROR("Invalid RGB input. Must be a valid 6-digit hex code.");
             }
         }
 
@@ -99,7 +125,7 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
                 ((float*)result)[5] = ((float*)&value.rgba_float)[1];
                 ((float*)result)[6] = ((float*)&value.rgba_float)[2];
                 ((float*)result)[7] = ((float*)&value.rgba_float)[3];
-                // JAPI_LogDebug(std::format("{} needed manual patching.", key));
+                JDEBUG("{} needed manual patching.", key);
             } else {
                 *buffer_ptr = buffer;
                 buffer_ptr[1] = value.rgba_float;
@@ -107,7 +133,7 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
             }
         }
 
-    // JAPI_LogDebug(std::format("Result: {:#010x}", (u64)result));
+    JDEBUG("Result: {:#010x}", (u64)result);
     return result;
 }
 
@@ -121,22 +147,14 @@ Hook Parse_PlayerColorParam_hook = {
 // This function is called when the mod is loaded.
 void __stdcall ModInit() {
     if (!JAPI_HookASBRFunction(&Parse_PlayerColorParam_hook))
-        JAPI_LogError("Failed to hook function `Parse_PlayerColorParam`.");
-    if (!JAPI_HookASBRFunction(&Load_nuccBinary_hook))
-        JAPI_LogError("Failed to hook function `Load_nuccBinary`.");
-    if (!JAPI_HookASBRFunction(&NUCC_Encrypt_hook))
-        JAPI_LogError("Failed to hook function `NUCC_Encrypt`.");
-    if (!JAPI_HookASBRFunction(&RGBA_Int_to_Float_hook))
-        JAPI_LogError("Failed to hook function `RGBA_Int_to_Float`.");
-    if (!JAPI_HookASBRFunction(&sub_47EB58_hook))
-        JAPI_LogError("Failed to hook function `sub_47EB58`.");
+        JERROR("Failed to hook function `{}`.", Parse_PlayerColorParam_hook.name);
 
     // Create directory for JSON files if not already existing.
     if (!fs::exists(json_directory)) {
-        JAPI_LogDebug("Attempting to create directory...");
+        JDEBUG("Attempting to create directory...");
         fs::create_directories(json_directory);
     }
-    if (!fs::exists(json_directory)) JAPI_LogFatal("Failed to create directory at:\n" + json_directory.string());
+    if (!fs::exists(json_directory)) JFATAL("Failed to create directory at:\n{}", json_directory.string());
 
     fs::path priority_path{json_directory / "_priority.json"};
     JSON priority_json;
@@ -177,7 +195,7 @@ void __stdcall ModInit() {
             filename_buffer = str + ".json";
             json_file_buffer.open(json_directory / filename_buffer);
             if (!json_file_buffer.is_open()) {
-                JAPI_LogWarn(filename_buffer + " could not be opened.");
+                JWARN("{} could not be opened.", filename_buffer);
                 continue;
             }
 
@@ -185,12 +203,12 @@ void __stdcall ModInit() {
                 json_buffer = JSON::parse(json_file_buffer);
                 json_data.merge_patch(json_buffer);
             } catch (const JSON::parse_error& e) {
-                JAPI_LogWarn(filename_buffer + ": " + e.what());
+                JWARN("{}: {}", filename_buffer, e.what());
             }
 
             json_file_buffer.close();
         }
     }
 
-    JAPI_LogInfo("Loaded!");
+    JINFO("Loaded!");
 }
