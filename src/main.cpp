@@ -28,8 +28,18 @@ struct RGB {
 
 /* User API */
 static kojo::binary live_data;
-static int encrypted_character_id[444];
-static int costume_index[444];
+
+typedef u64*(__fastcall* Load_nuccBinary_t)(const char*, const char*);
+Load_nuccBinary_t Load_nuccBinary_original;
+
+u64* __fastcall Load_nuccBinary(const char* xfbin_path, const char* chunk_name_buffer) {
+    std::string chunk_name = chunk_name_buffer; // Buffer gets changed when original function is called.
+    u64* original_data = Load_nuccBinary_original(xfbin_path, chunk_name_buffer);
+    if (chunk_name == "SpeakingLineParam") {
+        // nucc::ASBR::SpeakingLineParam speaking_line_param{binary_data.data()};
+    }
+    return original_data;
+}
 
 typedef u64*(__fastcall* Parse_PlayerColorParam_t)(u64*);
 Parse_PlayerColorParam_t Parse_PlayerColorParam_original;
@@ -59,6 +69,11 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
     std::map<std::string, Entry> entries;
 
         // Load data from XFBIN file.
+        nucc::ASBR::PlayerColorParam player_color_param{
+            Load_nuccBinary("data/param/battle/PlayerColorParam.bin.xfbin", "PlayerColorParam")
+        };
+        JAPI_LogInfo(player_color_param.write_to_json());
+        
         input.data.load(Load_nuccBinary("data/param/battle/PlayerColorParam.bin.xfbin", "PlayerColorParam"));
         if (!input.data.data()) {
             JERROR("`PlayerColorParam.bin.xfbin` data could not be loaded.");
@@ -138,17 +153,17 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
 
     live_data.load((char*)result - (32 * 316)); // Calculation to find data start.
     JTRACE("Data stored at {}", (u64)live_data.data());
-    for (size_t i = 0; i < 444; i++) {
-        JAPI_ConfigRegisterInt(&encrypted_character_id[i], std::format("Character ID {}", i), 0);
-        encrypted_character_id[i] = live_data.read<u32>(kojo::endian::little);
-        JAPI_ConfigRegisterInt(&costume_index[i], std::format("Costume Index {}", i), 0);
-        costume_index[i] = live_data.read<u64>(kojo::endian::little);
-        live_data.change_pos(20);
-    }
     /* TO DO: Calculate final entry count */
 
     return result;
 }
+
+Hook Load_nuccBinary_hook = {
+    (void*)0x671C30, // Address of the function we want to hook
+    (void*)Load_nuccBinary, // Address of our hook function
+    (void**)&Load_nuccBinary_original, // Address of the variable that will store the original function address
+    "Load_nuccBinary" // Name of the function we want to hook
+};
 
 Hook Parse_PlayerColorParam_hook = {
     (void*)0x47F114, // Address of the function we want to hook
@@ -161,6 +176,8 @@ Hook Parse_PlayerColorParam_hook = {
 void __stdcall ModInit() {
     if (!JAPI_HookASBRFunction(&Parse_PlayerColorParam_hook))
         JERROR("Failed to hook function `{}`.", Parse_PlayerColorParam_hook.name);
+    if (!JAPI_HookASBRFunction(&Load_nuccBinary_hook))
+        JERROR("Failed to hook function `{}`.", Load_nuccBinary_hook.name);
 
     // Create directory for JSON files if not already existing.
     if (!fs::exists(json_directory)) {

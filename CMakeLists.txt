@@ -10,7 +10,6 @@ add_link_options(-static -static-libgcc -static-libstdc++)
 add_library(PlayerColorParam SHARED ${SOURCES})
 
 add_subdirectory(external/japi)
-add_subdirectory(external/nlohmann)
 add_subdirectory(external/nucc)
 
 target_include_directories(${PROJECT_NAME} PRIVATE "src" "external/japi/src/exports")

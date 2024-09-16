@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp>
 #define USE_BINARY_TYPES
 #include <nucc/xfbin.hpp>
+#include <nucc/chunks/binary/asbr.hpp>
 
 #include <algorithm>
 #include <cstdint>
@@ -56,7 +57,6 @@ template<typename RETURN, typename... PARAMS> auto define_function(long long add
     return (RETURN(__fastcall*)(PARAMS...))(JAPI_GetASBRModuleBase() + address);
 }
 
-auto Load_nuccBinary = define_function<u64*, const char*, const char*>(0x671C30);
 auto NUCC_Encrypt = define_function<u64, const char*>(0x6C92A0);
 auto RGBA_Int_to_Float = define_function<float*, float*, int>(0x6DC840);
 auto sub_47EB58 = define_function<float*, u64*, u128*, u128*>(0x47EB58);
