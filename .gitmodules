@@ -1,9 +1,9 @@
 [submodule "external/nlohmann"]
 	path = external/nlohmann
 	url = https://github.com/nlohmann/json
-[submodule "external/binary"]
-	path = external/binary
-	url = https://github.com/KojoBailey/binary-cpp-library
 [submodule "external/japi"]
 	path = external/japi
 	url = https://github.com/Kapilarny/JAPI
+[submodule "external/nucc"]
+	path = external/nucc
+	url = https://www.github.com/KojoBailey/nucc-cpp-library
