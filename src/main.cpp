@@ -26,6 +26,11 @@ struct RGB {
     }
 };
 
+/* User API */
+static kojo::binary live_data;
+static int encrypted_character_id[444];
+static int costume_index[444];
+
 typedef u64*(__fastcall* Parse_PlayerColorParam_t)(u64*);
 Parse_PlayerColorParam_t Parse_PlayerColorParam_original;
 
@@ -53,7 +58,7 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
     };  // All data belonging to only one entry.
     std::map<std::string, Entry> entries;
 
-    // Load data from XFBIN file.
+        // Load data from XFBIN file.
         input.data.load(Load_nuccBinary("data/param/battle/PlayerColorParam.bin.xfbin", "PlayerColorParam"));
         if (!input.data.data()) {
             JERROR("`PlayerColorParam.bin.xfbin` data could not be loaded.");
@@ -123,7 +128,7 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
                 ((float*)result)[5] = ((float*)&value.rgba_float)[1];
                 ((float*)result)[6] = ((float*)&value.rgba_float)[2];
                 ((float*)result)[7] = ((float*)&value.rgba_float)[3];
-                JDEBUG("{} needed manual patching.", key);
+                JTRACE("{} needed manual patching.", key);
             } else {
                 *buffer_ptr = buffer;
                 buffer_ptr[1] = value.rgba_float;
@@ -131,7 +136,17 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
             }
         }
 
-    JDEBUG("Result: {:#010x}", (u64)result);
+    live_data.load((char*)result - (32 * 316)); // Calculation to find data start.
+    JTRACE("Data stored at {}", (u64)live_data.data());
+    for (size_t i = 0; i < 444; i++) {
+        JAPI_ConfigRegisterInt(&encrypted_character_id[i], std::format("Character ID {}", i), 0);
+        encrypted_character_id[i] = live_data.read<u32>(kojo::endian::little);
+        JAPI_ConfigRegisterInt(&costume_index[i], std::format("Costume Index {}", i), 0);
+        costume_index[i] = live_data.read<u64>(kojo::endian::little);
+        live_data.change_pos(20);
+    }
+    /* TO DO: Calculate final entry count */
+
     return result;
 }
 

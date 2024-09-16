@@ -5,7 +5,7 @@
 #include <JojoAPI.h>
 #include <nlohmann/json.hpp>
 #define USE_BINARY_TYPES
-#include <binary.hpp>
+#include <nucc/xfbin.hpp>
 
 #include <algorithm>
 #include <cstdint>
@@ -36,7 +36,7 @@ ModMeta __stdcall GetModInfo() {
     return meta;
 }
 
-// #define DEBUG_BUILD
+#define DEBUG_BUILD
 
 #define JFATAL(message, ...) JAPI_LogFatal(std::format(message, ##__VA_ARGS__))
 #define JERROR(message, ...) JAPI_LogError(std::format(message, ##__VA_ARGS__))

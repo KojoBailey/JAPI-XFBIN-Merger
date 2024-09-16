@@ -11,8 +11,9 @@ add_library(PlayerColorParam SHARED ${SOURCES})
 
 add_subdirectory(external/japi)
 add_subdirectory(external/nlohmann)
+add_subdirectory(external/nucc)
 
 target_include_directories(${PROJECT_NAME} PRIVATE "src" "external/japi/src/exports")
 target_include_directories(${PROJECT_NAME} PRIVATE "src" "external/nlohmann/include")
-target_include_directories(${PROJECT_NAME} PRIVATE "src" "external/binary/binary")
+target_link_libraries(${PROJECT_NAME} PRIVATE nucc-cpp-library)
 target_link_libraries(${PROJECT_NAME} PRIVATE d3dcompiler_47)
