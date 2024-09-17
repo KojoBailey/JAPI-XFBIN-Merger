@@ -69,6 +69,8 @@ JSON get_json_data(std::filesystem::path directory) {
 /* User API */
 static kojo::binary live_data;
 
+static nucc::Binary_Data* global_binary_data = nullptr;
+
 typedef u64*(__fastcall* Load_nuccBinary_t)(const char*, const char*);
 Load_nuccBinary_t Load_nuccBinary_original;
 
@@ -76,11 +78,16 @@ u64* __fastcall Load_nuccBinary(const char* xfbin_path, const char* chunk_name_b
     std::string chunk_name = chunk_name_buffer; // Buffer gets changed when original function is called.
     u64* original_data = Load_nuccBinary_original(xfbin_path, chunk_name_buffer);
     if (chunk_name == "SpeakingLineParam") {
-        nucc::ASBR::SpeakingLineParam* speaking_line_param = new nucc::ASBR::SpeakingLineParam{original_data};
+        global_binary_data = (nucc::Binary_Data*) new nucc::ASBR::SpeakingLineParam{original_data};
+
+        nucc::ASBR::SpeakingLineParam* speaking_line_param = (nucc::ASBR::SpeakingLineParam*)global_binary_data;
+
         JSON json_buffer = get_json_data("japi\\merging\\param\\battle\\SpeakingLineParam");
-        if (!json_buffer.is_null()) speaking_line_param->load(json_buffer);
+        speaking_line_param->load(json_buffer);
+
         JAPI_LogInfo(speaking_line_param->write_to_json());
-        return (u64*)&speaking_line_param->write_to_bin();
+        
+        return (u64*)speaking_line_param->write_to_bin();
     }
     return original_data;
 }
@@ -93,7 +100,7 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
     u64* result = Load_nuccBinary("data/param/battle/PlayerColorParam.bin.xfbin", "PlayerColorParam");
     nucc::ASBR::PlayerColorParam player_color_param{result};
     JSON json_buffer = get_json_data("japi\\merging\\param\\battle\\PlayerColorParam");
-    if (!json_buffer.is_null()) player_color_param.load(json_buffer);
+    player_color_param.load(json_buffer);
 
     // Load all data into game.
     u128 buffer;
