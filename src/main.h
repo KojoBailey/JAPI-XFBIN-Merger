@@ -3,7 +3,6 @@
 #define EXPORT extern "C" __declspec(dllexport)
 
 #include <JojoAPI.h>
-#include <nlohmann/json.hpp>
 #define USE_BINARY_TYPES
 #include <nucc/xfbin.hpp>
 #include <nucc/chunks/binary/asbr.hpp>
@@ -37,14 +36,14 @@ ModMeta __stdcall GetModInfo() {
     return meta;
 }
 
-#define DEBUG_BUILD
+#define DEBUG_BUILD true
 
 #define JFATAL(message, ...) JAPI_LogFatal(std::format(message, ##__VA_ARGS__))
 #define JERROR(message, ...) JAPI_LogError(std::format(message, ##__VA_ARGS__))
 #define JWARN(message, ...) JAPI_LogWarn(std::format(message, ##__VA_ARGS__))
 #define JINFO(message, ...) JAPI_LogInfo(std::format(message, ##__VA_ARGS__))
 
-#ifdef DEBUG_BUILD
+#if DEBUG_BUILD
     #define JDEBUG(message, ...) JAPI_LogDebug(std::format(message, ##__VA_ARGS__))
     #define JTRACE(message, ...) JAPI_LogTrace(std::format(message, ##__VA_ARGS__))
 #else
