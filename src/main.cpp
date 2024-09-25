@@ -105,7 +105,7 @@ Parse_PlayerColorParam_t Parse_PlayerColorParam_original;
 
 u64* __fastcall Parse_PlayerColorParam(u64* a1) {
     // Load data from XFBIN and JSON.
-    u64* result = Load_nuccBinary("data/param/battle/PlayerColorParam.bin.xfbin", "PlayerColorParam");
+    u64* result = Load_nuccBinary_original("data/param/battle/PlayerColorParam.bin.xfbin", "PlayerColorParam");
     nucc::ASBR::PlayerColorParam player_color_param{result};
     JSON json_buffer = get_json_data("japi\\merging\\param\\battle\\PlayerColorParam");
     player_color_param.load(json_buffer);
