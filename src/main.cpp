@@ -1,5 +1,10 @@
 #include "main.h"
 
+int error_handler(nucc::Error e) {
+    JERROR("\n\tError Code: {:03} - {}\n\t{}\n\tSuggestion: {}", e.number(), e.generic(), e.specific(), e.suggestion());
+    return e.number();
+}
+
 JSON get_json_data(std::filesystem::path directory) {
     // Create directory for JSON files if not already existing.
     if (!fs::exists(directory)) {
@@ -77,18 +82,21 @@ Load_nuccBinary_t Load_nuccBinary_original;
 u64* __fastcall Load_nuccBinary(const char* xfbin_path, const char* chunk_name_buffer) {
     std::string chunk_name = chunk_name_buffer; // Buffer gets changed when original function is called.
     u64* original_data = Load_nuccBinary_original(xfbin_path, chunk_name_buffer);
+
+    // if (global_binary_data != nullptr) delete global_binary_data;
+
     if (chunk_name == "SpeakingLineParam") {
         global_binary_data = (nucc::Binary_Data*) new nucc::ASBR::SpeakingLineParam{original_data};
-
         nucc::ASBR::SpeakingLineParam* speaking_line_param = (nucc::ASBR::SpeakingLineParam*)global_binary_data;
-
-        JSON json_buffer = get_json_data("japi\\merging\\param\\battle\\SpeakingLineParam");
-        speaking_line_param->load(json_buffer);
-
-        JAPI_LogInfo(speaking_line_param->write_to_json());
-        
+        speaking_line_param->load(get_json_data("japi\\merging\\param\\battle\\SpeakingLineParam"));
         return (u64*)speaking_line_param->write_to_bin();
+    } else if (chunk_name == "MainModeParam") {
+        global_binary_data = (nucc::Binary_Data*) new nucc::ASBR::MainModeParam{original_data};
+        nucc::ASBR::MainModeParam* main_mode_param = (nucc::ASBR::MainModeParam*)global_binary_data;
+        main_mode_param->load(get_json_data("japi\\merging\\param\\main_mode\\MainModeParam"));
+        return (u64*)main_mode_param->write_to_bin();
     }
+
     return original_data;
 }
 
@@ -147,6 +155,8 @@ Hook Parse_PlayerColorParam_hook = {
 
 // This function is called when the mod is loaded.
 void __stdcall ModInit() {
+    nucc::error_handler = error_handler;
+
     if (!JAPI_HookASBRFunction(&Parse_PlayerColorParam_hook))
         JERROR("Failed to hook function `{}`.", Parse_PlayerColorParam_hook.name);
     if (!JAPI_HookASBRFunction(&Load_nuccBinary_hook))
