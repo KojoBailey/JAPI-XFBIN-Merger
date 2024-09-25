@@ -88,7 +88,7 @@ The following fields have default values (blank/nothing) if you do not define th
 - Assist
 - First To Speak (Player by default)
 
-There are literally hundreds of possible values for the Special Rules and Secret Mission Condittions, so I'll add a full list of them later once I've had the chance to organise this documentation a bit better. In the meantime, you can check the source code in 
+There are literally hundreds of possible values for the Special Rules and Secret Mission Condittions, so I'll add a full list of them later once I've had the chance to organise this documentation a bit better. In the meantime, you can check the source code for [MainModeParam.hpp](https://github.com/KojoBailey/nucc-cpp-library/blob/main/include/nucc/chunks/binary/asbr/MainModeParam.hpp).
 
 ```json
 {
