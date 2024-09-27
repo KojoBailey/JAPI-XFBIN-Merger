@@ -4,9 +4,9 @@ This is a plugin for [JoJoAPI](https://jojomodding.miraheze.org/wiki/JoJoAPI) th
 
 ## How do I merge?
 Right now, you can only merge some nuccChunkBinary formats. These are:
-- PlayerColorParam
-- SpeakingLineParam
-- MainModeParam
+- [PlayerColorParam](#PlayerColorParam)
+- [SpeakingLineParam](#SpeakingLineParam)
+- [MainModeParam](#MainModeParam)
 
 Many more are to come, so sit tight!
 
