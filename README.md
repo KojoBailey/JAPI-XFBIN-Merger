@@ -57,6 +57,8 @@ And some quick yet **important** general notes:
 
 Each JSON **key** is the character's model code (e.g. `5grn01`) followed by their `col` ID, much like you'd find in `data/spc` for the game.
 
+The hex codes are in the format `#RRGGBB` (see [this site](https://www.rapidtables.com/web/color/RGB_Color.html) for more info if you aren't already familiar).
+
 ```json
 {
     "1jnt31col1" : "#FF0000"
@@ -76,12 +78,14 @@ Whatever you choose to edit the JSON data with, it's recommended you use somethi
 ### SpeakingLineParam
 **Directory:** `japi/merging/param/battle/SpeakingLineParam`
 
-The key's actually not strictly necessary, but it is important to use this format for searchability. Maybe in the future, it'll be made a requirement.
+The key isn't actually used so the format doesn't strictly matter, but it's better to keep a consistent format for the sake of helping others read your stuff.
 
-The `Interaction Type` **must** be one of the following:
-- Battle Start
-- Round Win
-- Battle Win
+Maybe in the future, this format will be updated to use the key instead.
+
+The **Interaction Type** *must* be one of the following:
+- `"Battle Start"`
+- `"Round Win"`
+- `"Battle Win"`
 
 ```json
 {
@@ -107,18 +111,18 @@ This one has a lot of parameters, but not all of them are necessary!
 The key is important, so make sure it is the panel ID you want to target.
 
 The following fields can be auto-calculated and therefore are not necessary unless you want a custom definition:
-- Index
-- Page
-- Boss Panel
-- CPU Level
+- **Index** → Based on entry key (e.g. `"PANEL_04_03"` will produce `4 * 3` which equals `12`)
+- **Page** → Based on entry key (e.g. `"PANEL_04_03"` will produce `4`)
+- **Boss Panel** → `"PANEL_XX_08"` based on entry key (e.g. `"PANEL_04_03"` will produce `"PANEL_04_08"`)
+- **CPU Level** → Matches **Difficulty**
 
 The following fields have default values (blank/nothing) if you do not define them at all (not even `""`).:
-- Adjacent Panels
-- Assist
-- First To Speak (Player by default)
-- Special Rules object
-- Special Rule (individually)
-- Secret Mission Reward
+- **Adjacent Panels**
+- **Type** → `"Normal"` by default
+- **Player/Enemy Assist**
+- **Special Rules object**
+- **Special Rule** (individually)
+- **Secret Mission Reward**
 
 There are literally hundreds of possible values for the Special Rules and Secret Mission Condittions, so I'll add a full list of them later once I've had the chance to organise this documentation a bit better. In the meantime, you can check the source code for [MainModeParam.hpp](https://github.com/KojoBailey/nucc-cpp-library/blob/main/include/nucc/chunks/binary/asbr/MainModeParam.hpp).
 
@@ -135,7 +139,7 @@ There are literally hundreds of possible values for the Special Rules and Secret
             "Left": "",
             "Right": "PANEL_01_08"
         },
-        "Type": "EXTRA",
+        "Type": "Extra",
         "Stars": 3,
         "CPU Level": 3,
         "Gold Reward": 1000,
@@ -148,7 +152,7 @@ There are literally hundreds of possible values for the Special Rules and Secret
         },
         "Enemy Information": {
             "Character": "Joseph",
-            "Assist: "Caesar",
+            "Assist": "Caesar",
             "Start Dialogue": "2jsp01_story_btlst_1dio01_00",
             "Win Dialogue": "2jsp01_story_btlwin_1dio01_00" 
         },
@@ -190,7 +194,7 @@ Here's how it'd look without defining unnecessary things:
             "Down": "PANEL_01_02",
             "Right": "PANEL_01_08"
         },
-        "Type": "EXTRA",
+        "Type": "Extra",
         "Stars": 3,
         "Gold Reward": 1000,
         "Stage": "Dio's Castle",
@@ -201,7 +205,7 @@ Here's how it'd look without defining unnecessary things:
         },
         "Enemy Information": {
             "Character": "Joseph",
-            "Assist: "Caesar",
+            "Assist": "Caesar",
             "Start Dialogue": "2jsp01_story_btlst_1dio01_00",
             "Win Dialogue": "2jsp01_story_btlwin_1dio01_00" 
         },
