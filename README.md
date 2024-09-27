@@ -19,9 +19,38 @@ Creating merge files is quite simple, as you just need to write the data you wan
 ## Formats
 This section will serve as a reference for how this plugin handles the different formats. Make sure to follow whatever rules are outlined below if you want to avoid errors.
 
-Some quick yet **important** general notes:
+First, some important JSON terminology:
+- **Key** → The name of a variable.
+- **Field** → A key-value pair.
+```json
+{
+    "This is a key" : "This is a value"
+}
+```
+- **Array** → A collection of values under one key.
+```json
+{
+    "Some Numbers" : [
+        1,
+        69,
+        23
+    ]
+}
+```
+- **Object** → A collection of key-value pairs.
+```json
+{
+    "Character HP" : {
+        "Jonathan Joestar": 1000,
+        "Dio Brando": 950,
+        "Bruno Bucciarati": 1100
+    }
+}
+```
+
+And some quick yet **important** general notes:
 - In most cases, the strings are **case sensitive**. And be weary of typos! You will get an error from JAPI if you enter an invalid value.
-- For characters, you can **either** use their name (e.g. Jotaro, Jotaro Kujo, Noriaki, etc.) or ASBR ID (e.g. 1jnt01, 3jtr01, 7dio02, etc.).
+- For characters, you can **either** use their name (e.g. Jotaro, Jotaro Kujo, Noriaki, etc.) or ASBR ID (e.g. `1jnt01`, `3jtr01`, `7dio02`, etc).
 
 ### PlayerColorParam
 **Directory:** `japi/merging/param/battle/PlayerColorParam`
@@ -84,9 +113,12 @@ The following fields can be auto-calculated and therefore are not necessary unle
 - CPU Level
 
 The following fields have default values (blank/nothing) if you do not define them at all (not even `""`).:
-- Adjacent Panels (all of them)
+- Adjacent Panels
 - Assist
 - First To Speak (Player by default)
+- Special Rules object
+- Special Rule (individually)
+- Secret Mission Reward
 
 There are literally hundreds of possible values for the Special Rules and Secret Mission Condittions, so I'll add a full list of them later once I've had the chance to organise this documentation a bit better. In the meantime, you can check the source code for [MainModeParam.hpp](https://github.com/KojoBailey/nucc-cpp-library/blob/main/include/nucc/chunks/binary/asbr/MainModeParam.hpp).
 
@@ -109,14 +141,14 @@ There are literally hundreds of possible values for the Special Rules and Secret
         "Gold Reward": 1000,
         "Stage": "Dio's Castle",
         "Player Information": {
-            "Character": "Wonder of U",
+            "Character": "Dio Brando",
             "Assist": "",
             "Start Dialogue": "1dio01_story_btlst_2jsp01_00",
             "Win Dialogue": "1dio01_story_btlwin_2jsp01_00" 
         },
         "Enemy Information": {
-            "Character": "Keicho",
-            "Assist": "",
+            "Character": "Joseph",
+            "Assist: "Caesar",
             "Start Dialogue": "2jsp01_story_btlst_1dio01_00",
             "Win Dialogue": "2jsp01_story_btlwin_1dio01_00" 
         },
@@ -155,9 +187,7 @@ Here's how it'd look without defining unnecessary things:
     "PANEL_01_01" : {
         "Part": 1,
         "Adjacent Panels": {
-            "Up": "",
             "Down": "PANEL_01_02",
-            "Left": "",
             "Right": "PANEL_01_08"
         },
         "Type": "EXTRA",
@@ -165,25 +195,22 @@ Here's how it'd look without defining unnecessary things:
         "Gold Reward": 1000,
         "Stage": "Dio's Castle",
         "Player Information": {
-            "Character": "Wonder of U",
+            "Character": "Dio Brando",
             "Start Dialogue": "1dio01_story_btlst_2jsp01_00",
             "Win Dialogue": "1dio01_story_btlwin_2jsp01_00" 
         },
         "Enemy Information": {
-            "Character": "Keicho",
+            "Character": "Joseph",
+            "Assist: "Caesar",
             "Start Dialogue": "2jsp01_story_btlst_1dio01_00",
             "Win Dialogue": "2jsp01_story_btlwin_1dio01_00" 
         },
         "Special Rules": {
-            "Rule 1": "OPP_HEALTH_REFILL",
-            "Rule 2": "",
-            "Rule 3": "",
-            "Rule 4": ""
+            "Rule 1": "OPP_HEALTH_REFILL"
         },
         "Secret Missions": {
             "Mission 1": {
                 "Condition": "TAUNT",
-                "Reward": "",
                 "Gold Reward": 1000
             },
             "Mission 2": {
