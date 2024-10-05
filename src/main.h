@@ -56,6 +56,6 @@ template<typename RETURN, typename... PARAMS> auto define_function(long long add
     return (RETURN(__fastcall*)(PARAMS...))(JAPI_GetASBRModuleBase() + address);
 }
 
-auto NUCC_Encrypt = define_function<u64, const char*>(0x6C92A0);
+auto NUCC_Encrypt = define_function<int, const char*>(0x6C92A0);
 auto RGBA_Int_to_Float = define_function<float*, float*, int>(0x6DC840);
 auto sub_47EB58 = define_function<float*, u64*, u128*, u128*>(0x47EB58);

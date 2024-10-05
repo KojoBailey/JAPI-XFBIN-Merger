@@ -1,5 +1,7 @@
 #include "main.h"
 
+static std::string game_language;
+
 int error_handler(nucc::Error e) {
     JERROR("\n\tError Code: {:03} - {}\n\t{}\n\tSuggestion: {}", e.number(), e.generic(), e.specific(), e.suggestion());
     return e.number();
@@ -19,7 +21,7 @@ JSON get_json_data(std::filesystem::path directory) {
     // Read existing priority data, if it exists.
     if (fs::exists(priority_path)) {
         std::ifstream priority_file(priority_path);
-        priority_json = JSON::parse(priority_file);
+        priority_json = JSON::parse(priority_file, nullptr, true, true);
         priority_file.close();
     }
 
@@ -71,10 +73,29 @@ JSON get_json_data(std::filesystem::path directory) {
     return json_result;
 }
 
-/* User API */
-static kojo::binary live_data;
+typedef u64*(__fastcall* Get_Steam_Path_Info_t)(u64*, u64*, const char*);
+Get_Steam_Path_Info_t Get_Steam_Path_Info_original;
+
+u64* __fastcall Get_Steam_Path_Info(u64* a1, u64* a2, const char* a3) {
+    game_language = a3;
+    if (game_language.size() == 5)
+        game_language = game_language.substr(1, 3);
+    return Get_Steam_Path_Info_original(a1, a2, a3);
+}
 
 static nucc::Binary_Data* global_binary_data = nullptr;
+
+typedef char*(__fastcall* sub_6E5250_t)(u64*, const char*);
+sub_6E5250_t sub_6E5250_original;
+
+char* __fastcall sub_6E5250(u64* a1, const char* xfbin_path) {
+    char* original_data = sub_6E5250_original(a1, xfbin_path);
+    if (original_data != nullptr) {
+        kojo::binary test_data{a1, 0, 5000};
+        test_data.dump_file("japi\\idk.bin");
+    }
+    return original_data;
+}
 
 typedef u64*(__fastcall* Load_nuccBinary_t)(const char*, const char*);
 Load_nuccBinary_t Load_nuccBinary_original;
@@ -82,8 +103,6 @@ Load_nuccBinary_t Load_nuccBinary_original;
 u64* __fastcall Load_nuccBinary(const char* xfbin_path, const char* chunk_name_buffer) {
     std::string chunk_name = chunk_name_buffer; // Buffer gets changed when original function is called.
     u64* original_data = Load_nuccBinary_original(xfbin_path, chunk_name_buffer);
-
-    // if (global_binary_data != nullptr) delete global_binary_data;
 
     if (chunk_name == "SpeakingLineParam") {
         global_binary_data = (nucc::Binary_Data*) new nucc::ASBR::SpeakingLineParam{original_data};
@@ -134,8 +153,8 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
         }
     }
 
-    live_data.load((char*)result - (32 * 316)); // Calculation to find data start.
-    JTRACE("Data stored at {}", (u64)live_data.data());
+    // live_data.load((char*)result - (32 * 316)); // Calculation to find data start.
+    // JTRACE("Data stored at {}", (u64)live_data.data());
     return result;
 }
 
@@ -153,14 +172,33 @@ Hook Parse_PlayerColorParam_hook = {
     "Parse_PlayerColorParam" // Name of the function we want to hook
 };
 
+Hook Get_Steam_Path_Info_hook = {
+    (void*)0x70C9A0,
+    (void*)Get_Steam_Path_Info,
+    (void**)&Get_Steam_Path_Info_original,
+    "Get_Steam_Path_Info"
+};
+
+Hook sub_6E5250_hook = {
+    (void*)0x6FA7A0,
+    (void*)sub_6E5250,
+    (void**)&sub_6E5250_original,
+    "sub_6E5250"
+};
+
 // This function is called when the mod is loaded.
 void __stdcall ModInit() {
     nucc::error_handler = error_handler;
 
-    if (!JAPI_HookASBRFunction(&Parse_PlayerColorParam_hook))
-        JERROR("Failed to hook function `{}`.", Parse_PlayerColorParam_hook.name);
+    if (!JAPI_HookASBRFunction(&sub_6E5250_hook))
+        JERROR("Failed to hook function `{}`.", sub_6E5250_hook.name);
+
+    if (!JAPI_HookASBRFunction(&Get_Steam_Path_Info_hook))
+        JERROR("Failed to hook function `{}`.", Get_Steam_Path_Info_hook.name);
     if (!JAPI_HookASBRFunction(&Load_nuccBinary_hook))
         JERROR("Failed to hook function `{}`.", Load_nuccBinary_hook.name);
+    if (!JAPI_HookASBRFunction(&Parse_PlayerColorParam_hook))
+        JERROR("Failed to hook function `{}`.", Parse_PlayerColorParam_hook.name);
 
     JINFO("Loaded!");
 }
