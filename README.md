@@ -61,7 +61,7 @@ The hex codes are in the format `#RRGGBB` (see [this site](https://www.rapidtabl
 
 ```json
 {
-    "1jnt31col1" : "#FF0000"
+    "1jnt31col1" : "#FF0000",
     "5grn01col0" : "#FF0000",
     "5grn01col1" : "#DA8A00",
     "5grn01col2" : "#D6DA00",
