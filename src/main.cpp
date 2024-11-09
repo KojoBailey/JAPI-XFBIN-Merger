@@ -1,6 +1,7 @@
 #include "main.h"
 
 static std::string game_language;
+static nucc::ASBR::messageInfo* messageInfo_data;
 
 int error_handler(nucc::Error e) {
     JERROR("\n\tError Code: {:03} - {}\n\t{}\n\tSuggestion: {}", e.number(), e.generic(), e.specific(), e.suggestion());
@@ -85,18 +86,6 @@ u64* __fastcall Get_Steam_Path_Info(u64* a1, u64* a2, const char* a3) {
 
 static nucc::Binary_Data* global_binary_data = nullptr;
 
-typedef char*(__fastcall* sub_6E5250_t)(u64*, const char*);
-sub_6E5250_t sub_6E5250_original;
-
-char* __fastcall sub_6E5250(u64* a1, const char* xfbin_path) {
-    char* original_data = sub_6E5250_original(a1, xfbin_path);
-    if (original_data != nullptr) {
-        kojo::binary test_data{a1, 0, 5000};
-        test_data.dump_file("japi\\idk.bin");
-    }
-    return original_data;
-}
-
 typedef u64*(__fastcall* Load_nuccBinary_t)(const char*, const char*);
 Load_nuccBinary_t Load_nuccBinary_original;
 
@@ -107,12 +96,14 @@ u64* __fastcall Load_nuccBinary(const char* xfbin_path, const char* chunk_name_b
     if (chunk_name == "SpeakingLineParam") {
         global_binary_data = (nucc::Binary_Data*) new nucc::ASBR::SpeakingLineParam{original_data};
         nucc::ASBR::SpeakingLineParam* speaking_line_param = (nucc::ASBR::SpeakingLineParam*)global_binary_data;
-        speaking_line_param->load(get_json_data("japi\\merging\\param\\battle\\SpeakingLineParam"));
+        JSON json_data = get_json_data("japi\\merging\\param\\battle\\SpeakingLineParam");
+        speaking_line_param->load(json_data);
         return (u64*)speaking_line_param->write_to_bin();
     } else if (chunk_name == "MainModeParam") {
         global_binary_data = (nucc::Binary_Data*) new nucc::ASBR::MainModeParam{original_data};
         nucc::ASBR::MainModeParam* main_mode_param = (nucc::ASBR::MainModeParam*)global_binary_data;
-        main_mode_param->load(get_json_data("japi\\merging\\param\\main_mode\\MainModeParam"));
+        JSON json_data = get_json_data("japi\\merging\\param\\main_mode\\MainModeParam");
+        main_mode_param->load(json_data);
         return (u64*)main_mode_param->write_to_bin();
     }
 
@@ -134,7 +125,7 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
     u128* buffer_ptr;
     i128 rgba_float_buffer;
     for (auto& [key, value] : player_color_param.entries) {
-        buffer = static_cast<u128>(NUCC_Encrypt(value.character_id.c_str()));
+        buffer = static_cast<u128>(NUCC_Hash(value.character_id.c_str()));
         buffer |= static_cast<u128>(value.costume_index) << 32;
         value.color.consolidate();
         result = (u64*)RGBA_Int_to_Float((float*)&rgba_float_buffer, value.color.rgb | 0xFFu);
@@ -158,6 +149,62 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
     return result;
 }
 
+typedef const char*(__fastcall* Fetch_String_from_ID_t)(u64*, const char*);
+Fetch_String_from_ID_t Fetch_String_from_ID_original;
+
+const char* __fastcall Fetch_String_from_ID(u64 a1, const char* string_id) {
+    u32 string_hash = NUCC_Hash(string_id);
+    const char* string_container = Fetch_String_from_Hash(a1, string_hash);
+
+    if (string_container && messageInfo_data->entries.contains(string_hash)) {
+        const char*& string = *((const char**)((u64*)string_container + 2));
+        string = messageInfo_data->entries[string_hash].message.c_str();
+    }
+
+    return string_container;
+}
+
+// WIP (unused)
+typedef u64*(__fastcall* Parse_messageInfo_t)(u64*, const char*, u64*, int);
+Parse_messageInfo_t Parse_messageInfo_original;
+
+u64* __fastcall Parse_messageInfo(u64* a1, const char* xfbin_path, u64* a3, int a4) {
+    u64* result = (u64*)a1[6];
+    u64* v6 = a1;
+    u64* v7 = result;
+    u64* v8 = (u64*)result[1];
+
+    // IDK
+    while (!*((u8*)v8 + 25)) {
+        if (*((u8*)v8 + 36) && *((u8*)a3 + 4) && *((u32*)v8 + 8) < *((u32*)a3)) {
+            v8 = (u64*)v8[2];
+        } else {
+            v7 = v8;
+            v8 = (u64*)v8[2];
+        }
+    }
+
+    // IDK
+    if (v7 == result || *((u8*)a3 + 4) && *((u8*)v7 + 36) && *(u32*)a3 < *((u32*)v7 + 8)) {
+        v7 = (u64*)a1[6];
+    }
+
+    nucc::ASBR::messageInfo* binary_data;
+    if (v7 == result) {
+        u64 qword_1AB8D10;
+        JAPI_CopyASBRMem((void*)&qword_1AB8D10, (void*)0x1AB8D10, 8);
+        result = Load_XFBIN_Data((u64)&qword_1AB8D10, xfbin_path);
+        if (result) {
+            result = Get_Chunk_Address(result, "nuccChunkBinary", a3);
+            if (result) {
+                binary_data = (nucc::ASBR::messageInfo*)result[2];
+            }
+        }
+    }
+
+    return result;
+}
+
 Hook Load_nuccBinary_hook = {
     (void*)0x671C30, // Address of the function we want to hook
     (void*)Load_nuccBinary, // Address of our hook function
@@ -172,6 +219,20 @@ Hook Parse_PlayerColorParam_hook = {
     "Parse_PlayerColorParam" // Name of the function we want to hook
 };
 
+Hook Fetch_String_from_ID_hook = {
+    (void*)0x77B0E0, // Address of the function we want to hook
+    (void*)Fetch_String_from_ID, // Address of our hook function
+    (void**)&Fetch_String_from_ID_original, // Address of the variable that will store the original function address
+    "Fetch_String_from_ID" // Name of the function we want to hook
+};
+
+Hook Parse_messageInfo_hook = {
+    (void*)0x77A8D0, // Address of the function we want to hook
+    (void*)Parse_messageInfo, // Address of our hook function
+    (void**)&Parse_messageInfo_original, // Address of the variable that will store the original function address
+    "Parse_messageInfo" // Name of the function we want to hook
+};
+
 Hook Get_Steam_Path_Info_hook = {
     (void*)0x70C9A0,
     (void*)Get_Steam_Path_Info,
@@ -179,19 +240,9 @@ Hook Get_Steam_Path_Info_hook = {
     "Get_Steam_Path_Info"
 };
 
-Hook sub_6E5250_hook = {
-    (void*)0x6FA7A0,
-    (void*)sub_6E5250,
-    (void**)&sub_6E5250_original,
-    "sub_6E5250"
-};
-
 // This function is called when the mod is loaded.
 void __stdcall ModInit() {
     nucc::error_handler = error_handler;
-
-    if (!JAPI_HookASBRFunction(&sub_6E5250_hook))
-        JERROR("Failed to hook function `{}`.", sub_6E5250_hook.name);
 
     if (!JAPI_HookASBRFunction(&Get_Steam_Path_Info_hook))
         JERROR("Failed to hook function `{}`.", Get_Steam_Path_Info_hook.name);
@@ -199,6 +250,13 @@ void __stdcall ModInit() {
         JERROR("Failed to hook function `{}`.", Load_nuccBinary_hook.name);
     if (!JAPI_HookASBRFunction(&Parse_PlayerColorParam_hook))
         JERROR("Failed to hook function `{}`.", Parse_PlayerColorParam_hook.name);
+    if (!JAPI_HookASBRFunction(&Fetch_String_from_ID_hook))
+        JERROR("Failed to hook function `{}`.", Fetch_String_from_ID_hook.name);
+
+    JAPI_LogTrace(game_language);
+    JSON messageInfo_json = get_json_data("japi\\merging\\messageInfo\\eng");
+    messageInfo_data = new nucc::ASBR::messageInfo;
+    messageInfo_data->load(messageInfo_json);
 
     JINFO("Loaded!");
 }
