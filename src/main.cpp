@@ -120,26 +120,27 @@ u64* __fastcall Parse_PlayerColorParam(u64* a1) {
     JSON json_buffer = get_json_data("japi\\merging\\param\\battle\\PlayerColorParam");
     player_color_param.load(json_buffer);
 
+    struct PlayerColorParam_Game {
+        u32 character_id_hash;
+        u32 costume_index;
+        u64 padding;
+        struct {
+            float red, green, blue, alpha;
+        } color;
+    };
+
     // Load all data into game.
-    u128 buffer;
-    u128* buffer_ptr;
-    i128 rgba_float_buffer;
+    PlayerColorParam_Game buffer;
+    PlayerColorParam_Game* buffer_ptr;
     for (auto& [key, value] : player_color_param.entries) {
-        buffer = static_cast<u128>(NUCC_Hash(value.character_id.c_str()));
-        buffer |= static_cast<u128>(value.costume_index) << 32;
-        value.color.consolidate();
-        result = (u64*)RGBA_Int_to_Float((float*)&rgba_float_buffer, value.color.rgb | 0xFFu);
-        buffer_ptr = (u128*)a1[5];
+        buffer.character_id_hash = NUCC_Hash(value.character_id.c_str());
+        buffer.costume_index = value.costume_index;
+        result = (u64*)RGBA_Int_to_Float((float*)&buffer.color.red, value.color.consolidate() | 0xFFu);
+        buffer_ptr = (PlayerColorParam_Game*)a1[5];
         if (a1[6] == a1[5]) {
             result = (u64*)sub_47EB58(a1 + 1, buffer_ptr, &buffer);
-            ((float*)result)[4] = ((float*)&rgba_float_buffer)[0];
-            ((float*)result)[5] = ((float*)&rgba_float_buffer)[1];
-            ((float*)result)[6] = ((float*)&rgba_float_buffer)[2];
-            ((float*)result)[7] = ((float*)&rgba_float_buffer)[3];
-            JTRACE("{} needed manual patching.", key);
         } else {
             *buffer_ptr = buffer;
-            buffer_ptr[1] = rgba_float_buffer;
             a1[5] += 32;
         }
     }

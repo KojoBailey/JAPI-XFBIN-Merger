@@ -59,6 +59,6 @@ template<typename RETURN, typename... PARAMS> auto define_function(long long add
 auto NUCC_Hash = define_function<int, const char*>(0x6C92A0);
 auto Fetch_String_from_Hash = define_function<const char*, u64, u32>(0x77B110);
 auto RGBA_Int_to_Float = define_function<float*, float*, int>(0x6DC840);
-auto sub_47EB58 = define_function<float*, u64*, u128*, u128*>(0x47EB58);
+auto sub_47EB58 = define_function<float*, u64*, void*, void*>(0x47EB58);
 auto Load_XFBIN_Data = define_function<u64*, u64, const char*>(0x6E5230);
 auto Get_Chunk_Address = define_function<u64*, u64*, const char*, u64*>(0x6E3290);
