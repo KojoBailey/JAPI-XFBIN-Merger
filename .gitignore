@@ -1,2 +1,6 @@
 build/
 .vscode/
+build.ninja
+.ninja_log
+.ninja_deps
+cmake_install.cmake
