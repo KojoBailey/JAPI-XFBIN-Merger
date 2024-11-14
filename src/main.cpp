@@ -1,7 +1,10 @@
 #include "main.h"
 
-static std::string game_language;
-static nucc::ASBR::messageInfo* messageInfo_data;
+static struct {
+    std::string steam;
+    std::string path3; // e.g. "eng", "jpn", "spa", etc.
+} game_language;
+static nucc::ASBR::messageInfo* messageInfo_data{nullptr};
 
 int error_handler(nucc::Error e) {
     JERROR("\n\tError Code: {:03} - {}\n\t{}\n\tSuggestion: {}", e.number(), e.generic(), e.specific(), e.suggestion());
@@ -74,14 +77,48 @@ JSON get_json_data(std::filesystem::path directory) {
     return json_result;
 }
 
-typedef u64*(__fastcall* Get_Steam_Path_Info_t)(u64*, u64*, const char*);
-Get_Steam_Path_Info_t Get_Steam_Path_Info_original;
+typedef std::uint64_t*(__fastcall* Get_Game_Language_t)(std::uint64_t*, unsigned int*);
+Get_Game_Language_t Get_Game_Language_original;
 
-u64* __fastcall Get_Steam_Path_Info(u64* a1, u64* a2, const char* a3) {
-    game_language = a3;
-    if (game_language.size() == 5)
-        game_language = game_language.substr(1, 3);
-    return Get_Steam_Path_Info_original(a1, a2, a3);
+std::uint64_t* __fastcall Get_Game_Language(std::uint64_t* a1, unsigned int* language_index) {
+    switch (*language_index) {
+        case 0: 
+            game_language.steam = "japanese";
+            game_language.path3 = "jpn";
+            break;
+        case 2:
+            game_language.steam = "french";
+            game_language.path3 = "fre";
+            break;
+        case 3:
+            game_language.steam = "spanish";
+            game_language.path3 = "spa";
+            break;
+        case 4:
+            game_language.steam = "german";
+            game_language.path3 = "ger";
+            break;
+        case 5:
+            game_language.steam = "italian";
+            game_language.path3 = "ita";
+            break;
+        case 9:
+            game_language.steam = "koreana";
+            game_language.path3 = "kor";
+            break;
+        case 10:
+            game_language.steam = "tchinese";
+            game_language.path3 = "cht";
+            break;
+        case 11:
+            game_language.steam = "schinese";
+            game_language.path3 = "chs";
+            break;
+        default: // English is 1
+            game_language.steam = "english";
+            game_language.path3 = "eng";
+    }
+    return Get_Game_Language_original(a1, language_index);
 }
 
 static nucc::Binary_Data* global_binary_data = nullptr;
@@ -103,7 +140,7 @@ u64* __fastcall Load_nuccBinary(const char* xfbin_path, const char* chunk_name_b
         global_binary_data = (nucc::Binary_Data*) new nucc::ASBR::MainModeParam{original_data};
         nucc::ASBR::MainModeParam* main_mode_param = (nucc::ASBR::MainModeParam*)global_binary_data;
         JSON json_data = get_json_data("japi\\merging\\param\\main_mode\\MainModeParam");
-        main_mode_param->load(json_data);
+        main_mode_param->load(json_data, true);
         return (u64*)main_mode_param->write_to_bin();
     }
 
@@ -154,6 +191,12 @@ typedef const char*(__fastcall* Fetch_String_from_ID_t)(u64*, const char*);
 Fetch_String_from_ID_t Fetch_String_from_ID_original;
 
 const char* __fastcall Fetch_String_from_ID(u64 a1, const char* string_id) {
+    if (!messageInfo_data) {
+        JSON messageInfo_json = get_json_data("japi\\merging\\messageInfo\\" + game_language.path3);
+        messageInfo_data = new nucc::ASBR::messageInfo;
+        messageInfo_data->load(messageInfo_json);
+    }
+
     u32 string_hash = NUCC_Hash(string_id);
     const char* string_container = Fetch_String_from_Hash(a1, string_hash);
 
@@ -206,6 +249,13 @@ u64* __fastcall Parse_messageInfo(u64* a1, const char* xfbin_path, u64* a3, int 
     return result;
 }
 
+Hook Get_Game_Language_hook = {
+    (void*)0x6F1970,
+    (void*)Get_Game_Language,
+    (void**)&Get_Game_Language_original,
+    "Get_Game_Language"
+};
+
 Hook Load_nuccBinary_hook = {
     (void*)0x671C30, // Address of the function we want to hook
     (void*)Load_nuccBinary, // Address of our hook function
@@ -234,30 +284,18 @@ Hook Parse_messageInfo_hook = {
     "Parse_messageInfo" // Name of the function we want to hook
 };
 
-Hook Get_Steam_Path_Info_hook = {
-    (void*)0x70C9A0,
-    (void*)Get_Steam_Path_Info,
-    (void**)&Get_Steam_Path_Info_original,
-    "Get_Steam_Path_Info"
-};
-
 // This function is called when the mod is loaded.
 void __stdcall ModInit() {
     nucc::error_handler = error_handler;
 
-    if (!JAPI_HookASBRFunction(&Get_Steam_Path_Info_hook))
-        JERROR("Failed to hook function `{}`.", Get_Steam_Path_Info_hook.name);
+    if (!JAPI_HookASBRFunction(&Get_Game_Language_hook))
+        JERROR("Failed to hook function `{}`.", Get_Game_Language_hook.name);
     if (!JAPI_HookASBRFunction(&Load_nuccBinary_hook))
         JERROR("Failed to hook function `{}`.", Load_nuccBinary_hook.name);
     if (!JAPI_HookASBRFunction(&Parse_PlayerColorParam_hook))
         JERROR("Failed to hook function `{}`.", Parse_PlayerColorParam_hook.name);
     if (!JAPI_HookASBRFunction(&Fetch_String_from_ID_hook))
         JERROR("Failed to hook function `{}`.", Fetch_String_from_ID_hook.name);
-
-    JAPI_LogTrace(game_language);
-    JSON messageInfo_json = get_json_data("japi\\merging\\messageInfo\\eng");
-    messageInfo_data = new nucc::ASBR::messageInfo;
-    messageInfo_data->load(messageInfo_json);
 
     JINFO("Loaded!");
 }
