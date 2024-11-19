@@ -4,7 +4,6 @@ static struct {
     std::string steam;
     std::string path3; // e.g. "eng", "jpn", "spa", etc.
 } game_language;
-static nucc::ASBR::messageInfo* messageInfo_data{nullptr};
 
 int error_handler(nucc::Error e) {
     JERROR("\n\tError Code: {:03} - {}\n\t{}\n\tSuggestion: {}", e.number(), e.generic(), e.specific(), e.suggestion());
@@ -64,7 +63,7 @@ JSON get_json_data(std::filesystem::path directory) {
             }
 
             try {
-                json_buffer = JSON::parse(json_file_buffer);
+                json_buffer = JSON::parse(json_file_buffer, nullptr, true, true);
                 json_result.merge_patch(json_buffer);
             } catch (const JSON::parse_error& e) {
                 JWARN("{}: {}", filename_buffer, e.what());
@@ -122,6 +121,26 @@ std::uint64_t* __fastcall Get_Game_Language(std::uint64_t* a1, unsigned int* lan
 }
 
 static nucc::Binary_Data* global_binary_data = nullptr;
+static nucc::Binary_Data* global_messageInfo_data = nullptr;
+
+typedef u64**(__fastcall* Get_Chunk_t)(u64*, const char*, nucc_hash_string*);
+Get_Chunk_t Get_Chunk_original;
+
+u64** Get_Chunk(u64* a1, const char* type, nucc_hash_string* name) {
+    std::string name_str;
+    if (name->string) name_str = name->string;
+    u64** original_data = Get_Chunk_original(a1, type, name);
+
+    if (name_str == "messageInfo") {
+        global_messageInfo_data = (nucc::Binary_Data*) new nucc::ASBR::messageInfo{original_data[2]};
+        nucc::ASBR::messageInfo* message_info = (nucc::ASBR::messageInfo*)global_messageInfo_data;
+        JSON json_data = get_json_data("japi\\merging\\messageInfo\\" + game_language.path3);
+        message_info->load(json_data);
+        original_data[2] = message_info->write_to_bin();
+    }
+
+    return original_data;
+}
 
 typedef u64*(__fastcall* Load_nuccBinary_t)(const char*, const char*);
 Load_nuccBinary_t Load_nuccBinary_original;
@@ -147,102 +166,29 @@ u64* __fastcall Load_nuccBinary(const char* xfbin_path, const char* chunk_name_b
     return original_data;
 }
 
-typedef u64*(__fastcall* Parse_PlayerColorParam_t)(u64*);
+typedef u64*(__fastcall* Parse_PlayerColorParam_t)(nucc_vector*);
 Parse_PlayerColorParam_t Parse_PlayerColorParam_original;
 
-u64* __fastcall Parse_PlayerColorParam(u64* a1) {
+u64* __fastcall Parse_PlayerColorParam(nucc_vector_handle* PlayerColorParam_storage) {
     // Load data from XFBIN and JSON.
     u64* result = Load_nuccBinary_original("data/param/battle/PlayerColorParam.bin.xfbin", "PlayerColorParam");
-    nucc::ASBR::PlayerColorParam player_color_param{result};
+    nucc::ASBR::PlayerColorParam data{result};
     JSON json_buffer = get_json_data("japi\\merging\\param\\battle\\PlayerColorParam");
-    player_color_param.load(json_buffer);
-
-    struct PlayerColorParam_Game {
-        u32 character_id_hash;
-        u32 costume_index;
-        u64 padding;
-        struct {
-            float red, green, blue, alpha;
-        } color;
-    };
+    data.load(json_buffer);
 
     // Load all data into game.
-    PlayerColorParam_Game buffer;
-    PlayerColorParam_Game* buffer_ptr;
-    for (auto& [key, value] : player_color_param.entries) {
-        buffer.character_id_hash = NUCC_Hash(value.character_id.c_str());
-        buffer.costume_index = value.costume_index;
-        result = (u64*)RGBA_Int_to_Float((float*)&buffer.color.red, value.color.consolidate() | 0xFFu);
-        buffer_ptr = (PlayerColorParam_Game*)a1[5];
-        if (a1[6] == a1[5]) {
-            result = (u64*)sub_47EB58(a1 + 1, buffer_ptr, &buffer);
+    PlayerColorParam_Game game_entry;
+    u64* buffer_ptr;
+    for (auto& [key, value] : data.entries) {
+        game_entry.character_id_hash = NUCC_Hash(value.character_id.c_str());
+        game_entry.costume_index = value.costume_index;
+        result = (u64*)RGBA_Int_to_Float((float*)&game_entry.color, value.color.consolidate() | 0xFFu);
+        buffer_ptr = (u64*)PlayerColorParam_storage->vector.position;
+        if (PlayerColorParam_storage->vector.end == (char*)buffer_ptr) {
+            result = Allocate_PlayerColorParam_Data(&PlayerColorParam_storage->vector, (PlayerColorParam_Game*)buffer_ptr, &game_entry);
         } else {
-            *buffer_ptr = buffer;
-            a1[5] += 32;
-        }
-    }
-
-    // live_data.load((char*)result - (32 * 316)); // Calculation to find data start.
-    // JTRACE("Data stored at {}", (u64)live_data.data());
-    return result;
-}
-
-typedef const char*(__fastcall* Fetch_String_from_ID_t)(u64*, const char*);
-Fetch_String_from_ID_t Fetch_String_from_ID_original;
-
-const char* __fastcall Fetch_String_from_ID(u64 a1, const char* string_id) {
-    if (!messageInfo_data) {
-        JSON messageInfo_json = get_json_data("japi\\merging\\messageInfo\\" + game_language.path3);
-        messageInfo_data = new nucc::ASBR::messageInfo;
-        messageInfo_data->load(messageInfo_json);
-    }
-
-    u32 string_hash = NUCC_Hash(string_id);
-    const char* string_container = Fetch_String_from_Hash(a1, string_hash);
-
-    if (string_container && messageInfo_data->entries.contains(string_hash)) {
-        const char*& string = *((const char**)((u64*)string_container + 2));
-        string = messageInfo_data->entries[string_hash].message.c_str();
-    }
-
-    return string_container;
-}
-
-// WIP (unused)
-typedef u64*(__fastcall* Parse_messageInfo_t)(u64*, const char*, u64*, int);
-Parse_messageInfo_t Parse_messageInfo_original;
-
-u64* __fastcall Parse_messageInfo(u64* a1, const char* xfbin_path, u64* a3, int a4) {
-    u64* result = (u64*)a1[6];
-    u64* v6 = a1;
-    u64* v7 = result;
-    u64* v8 = (u64*)result[1];
-
-    // IDK
-    while (!*((u8*)v8 + 25)) {
-        if (*((u8*)v8 + 36) && *((u8*)a3 + 4) && *((u32*)v8 + 8) < *((u32*)a3)) {
-            v8 = (u64*)v8[2];
-        } else {
-            v7 = v8;
-            v8 = (u64*)v8[2];
-        }
-    }
-
-    // IDK
-    if (v7 == result || *((u8*)a3 + 4) && *((u8*)v7 + 36) && *(u32*)a3 < *((u32*)v7 + 8)) {
-        v7 = (u64*)a1[6];
-    }
-
-    nucc::ASBR::messageInfo* binary_data;
-    if (v7 == result) {
-        u64 qword_1AB8D10;
-        JAPI_CopyASBRMem((void*)&qword_1AB8D10, (void*)0x1AB8D10, 8);
-        result = Load_XFBIN_Data((u64)&qword_1AB8D10, xfbin_path);
-        if (result) {
-            result = Get_Chunk_Address(result, "nuccChunkBinary", a3);
-            if (result) {
-                binary_data = (nucc::ASBR::messageInfo*)result[2];
-            }
+            *(PlayerColorParam_Game*)buffer_ptr = game_entry;
+            PlayerColorParam_storage->vector.position += 32;
         }
     }
 
@@ -254,6 +200,13 @@ Hook Get_Game_Language_hook = {
     (void*)Get_Game_Language,
     (void**)&Get_Game_Language_original,
     "Get_Game_Language"
+};
+
+Hook Get_Chunk_hook = {
+    (void*)0x6E3290, // Address of the function we want to hook
+    (void*)Get_Chunk, // Address of our hook function
+    (void**)&Get_Chunk_original, // Address of the variable that will store the original function address
+    "Get_Chunk" // Name of the function we want to hook
 };
 
 Hook Load_nuccBinary_hook = {
@@ -270,32 +223,18 @@ Hook Parse_PlayerColorParam_hook = {
     "Parse_PlayerColorParam" // Name of the function we want to hook
 };
 
-Hook Fetch_String_from_ID_hook = {
-    (void*)0x77B0E0, // Address of the function we want to hook
-    (void*)Fetch_String_from_ID, // Address of our hook function
-    (void**)&Fetch_String_from_ID_original, // Address of the variable that will store the original function address
-    "Fetch_String_from_ID" // Name of the function we want to hook
-};
-
-Hook Parse_messageInfo_hook = {
-    (void*)0x77A8D0, // Address of the function we want to hook
-    (void*)Parse_messageInfo, // Address of our hook function
-    (void**)&Parse_messageInfo_original, // Address of the variable that will store the original function address
-    "Parse_messageInfo" // Name of the function we want to hook
-};
-
 // This function is called when the mod is loaded.
 void __stdcall ModInit() {
     nucc::error_handler = error_handler;
 
     if (!JAPI_HookASBRFunction(&Get_Game_Language_hook))
         JERROR("Failed to hook function `{}`.", Get_Game_Language_hook.name);
+    if (!JAPI_HookASBRFunction(&Get_Chunk_hook))
+        JERROR("Failed to hook function `{}`.", Get_Chunk_hook.name);
     if (!JAPI_HookASBRFunction(&Load_nuccBinary_hook))
         JERROR("Failed to hook function `{}`.", Load_nuccBinary_hook.name);
     if (!JAPI_HookASBRFunction(&Parse_PlayerColorParam_hook))
         JERROR("Failed to hook function `{}`.", Parse_PlayerColorParam_hook.name);
-    if (!JAPI_HookASBRFunction(&Fetch_String_from_ID_hook))
-        JERROR("Failed to hook function `{}`.", Fetch_String_from_ID_hook.name);
 
     JINFO("Loaded!");
 }
