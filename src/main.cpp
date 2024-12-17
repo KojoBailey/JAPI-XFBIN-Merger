@@ -2,7 +2,7 @@
 
 static struct {
     std::string steam;
-    std::string path3; // e.g. "eng", "jpn", "spa", etc.
+    std::string code; // e.g. "eng", "jpn", "spa", etc.
 } game_language;
 
 int error_handler(nucc::Error e) {
@@ -11,6 +11,7 @@ int error_handler(nucc::Error e) {
 }
 
 JSON get_json_data(std::filesystem::path directory) {
+    JTRACE("Loading JSON data from `{}`...", directory.string());
     // Create directory for JSON files if not already existing.
     if (!fs::exists(directory)) {
         JDEBUG("Attempting to create directory at: `{}`", directory.string());
@@ -83,39 +84,39 @@ std::uint64_t* __fastcall Get_Game_Language(std::uint64_t* a1, unsigned int* lan
     switch (*language_index) {
         case 0: 
             game_language.steam = "japanese";
-            game_language.path3 = "jpn";
+            game_language.code = "jpn";
             break;
         case 2:
             game_language.steam = "french";
-            game_language.path3 = "fre";
+            game_language.code = "fre";
             break;
         case 3:
             game_language.steam = "spanish";
-            game_language.path3 = "spa";
+            game_language.code = "spa";
             break;
         case 4:
             game_language.steam = "german";
-            game_language.path3 = "ger";
+            game_language.code = "ger";
             break;
         case 5:
             game_language.steam = "italian";
-            game_language.path3 = "ita";
+            game_language.code = "ita";
             break;
         case 9:
             game_language.steam = "koreana";
-            game_language.path3 = "kor";
+            game_language.code = "kor";
             break;
         case 10:
             game_language.steam = "tchinese";
-            game_language.path3 = "cht";
+            game_language.code = "cht";
             break;
         case 11:
             game_language.steam = "schinese";
-            game_language.path3 = "chs";
+            game_language.code = "chs";
             break;
         default: // English is 1
             game_language.steam = "english";
-            game_language.path3 = "eng";
+            game_language.code = "eng";
     }
     return Get_Game_Language_original(a1, language_index);
 }
@@ -123,18 +124,18 @@ std::uint64_t* __fastcall Get_Game_Language(std::uint64_t* a1, unsigned int* lan
 static nucc::Binary_Data* global_binary_data = nullptr;
 static nucc::Binary_Data* global_messageInfo_data = nullptr;
 
-typedef u64**(__fastcall* Get_Chunk_t)(u64*, const char*, nucc_hash_string*);
+typedef u64**(__fastcall* Get_Chunk_t)(u64*, const char*, ASBR::cache::hash_string*);
 Get_Chunk_t Get_Chunk_original;
 
-u64** Get_Chunk(u64* a1, const char* type, nucc_hash_string* name) {
+u64** Get_Chunk(u64* a1, const char* type, ASBR::cache::hash_string* name) {
     std::string name_str;
     if (name->string) name_str = name->string;
     u64** original_data = Get_Chunk_original(a1, type, name);
 
     if (name_str == "messageInfo") {
-        global_messageInfo_data = (nucc::Binary_Data*) new nucc::ASBR::messageInfo{original_data[2]};
-        nucc::ASBR::messageInfo* message_info = (nucc::ASBR::messageInfo*)global_messageInfo_data;
-        JSON json_data = get_json_data("japi\\merging\\messageInfo\\" + game_language.path3);
+        global_messageInfo_data = (nucc::Binary_Data*) new ASBR::messageInfo{original_data[2]};
+        ASBR::messageInfo* message_info = (ASBR::messageInfo*)global_messageInfo_data;
+        JSON json_data = get_json_data("japi\\merging\\messageInfo\\" + game_language.code);
         message_info->load(json_data);
         original_data[2] = message_info->write_to_bin();
     }
@@ -150,14 +151,14 @@ u64* __fastcall Load_nuccBinary(const char* xfbin_path, const char* chunk_name_b
     u64* original_data = Load_nuccBinary_original(xfbin_path, chunk_name_buffer);
 
     if (chunk_name == "SpeakingLineParam") {
-        global_binary_data = (nucc::Binary_Data*) new nucc::ASBR::SpeakingLineParam{original_data};
-        nucc::ASBR::SpeakingLineParam* speaking_line_param = (nucc::ASBR::SpeakingLineParam*)global_binary_data;
+        global_binary_data = (nucc::Binary_Data*) new ASBR::SpeakingLineParam{original_data};
+        ASBR::SpeakingLineParam* speaking_line_param = (ASBR::SpeakingLineParam*)global_binary_data;
         JSON json_data = get_json_data("japi\\merging\\param\\battle\\SpeakingLineParam");
         speaking_line_param->load(json_data);
         return (u64*)speaking_line_param->write_to_bin();
     } else if (chunk_name == "MainModeParam") {
-        global_binary_data = (nucc::Binary_Data*) new nucc::ASBR::MainModeParam{original_data};
-        nucc::ASBR::MainModeParam* main_mode_param = (nucc::ASBR::MainModeParam*)global_binary_data;
+        global_binary_data = (nucc::Binary_Data*) new ASBR::MainModeParam{original_data};
+        ASBR::MainModeParam* main_mode_param = (ASBR::MainModeParam*)global_binary_data;
         JSON json_data = get_json_data("japi\\merging\\param\\main_mode\\MainModeParam");
         main_mode_param->load(json_data, true);
         return (u64*)main_mode_param->write_to_bin();
@@ -166,29 +167,34 @@ u64* __fastcall Load_nuccBinary(const char* xfbin_path, const char* chunk_name_b
     return original_data;
 }
 
-typedef u64*(__fastcall* Parse_PlayerColorParam_t)(nucc_vector*);
+typedef u64*(__fastcall* Parse_PlayerColorParam_t)(u64*);
 Parse_PlayerColorParam_t Parse_PlayerColorParam_original;
 
-u64* __fastcall Parse_PlayerColorParam(nucc_vector_handle* PlayerColorParam_storage) {
+u64* __fastcall Parse_PlayerColorParam(u64* PlayerColorParam_cache) {
     // Load data from XFBIN and JSON.
     u64* result = Load_nuccBinary_original("data/param/battle/PlayerColorParam.bin.xfbin", "PlayerColorParam");
-    nucc::ASBR::PlayerColorParam data{result};
+    ASBR::PlayerColorParam data{result};
     JSON json_buffer = get_json_data("japi\\merging\\param\\battle\\PlayerColorParam");
     data.load(json_buffer);
 
     // Load all data into game.
-    PlayerColorParam_Game game_entry;
+    ASBR::cache::PlayerColorParam game_entry;
     u64* buffer_ptr;
+    ASBR::cache::vector* cache = (ASBR::cache::vector*)(PlayerColorParam_cache + 1);
     for (auto& [key, value] : data.entries) {
         game_entry.character_id_hash = NUCC_Hash(value.character_id.c_str());
         game_entry.costume_index = value.costume_index;
         result = (u64*)RGBA_Int_to_Float((float*)&game_entry.color, value.color.consolidate() | 0xFFu);
-        buffer_ptr = (u64*)PlayerColorParam_storage->vector.position;
-        if (PlayerColorParam_storage->vector.end == (char*)buffer_ptr) {
-            result = Allocate_PlayerColorParam_Data(&PlayerColorParam_storage->vector, (PlayerColorParam_Game*)buffer_ptr, &game_entry);
+        buffer_ptr = (u64*)cache->position;
+        if (cache->end == (char*)buffer_ptr) {
+            result = Allocate_PlayerColorParam_Data(
+                cache,
+                (ASBR::cache::PlayerColorParam*)buffer_ptr,
+                &game_entry
+            );
         } else {
-            *(PlayerColorParam_Game*)buffer_ptr = game_entry;
-            PlayerColorParam_storage->vector.position += 32;
+            *(ASBR::cache::PlayerColorParam*)buffer_ptr = game_entry;
+            cache->position += 32;
         }
     }
 
