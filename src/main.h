@@ -1,9 +1,11 @@
 #pragma once
 
+#define DEBUG_BUILD true
+#define USE_BINARY_TYPES
+
 #define EXPORT extern "C" __declspec(dllexport)
 
 #include <JojoAPI.h>
-#define USE_BINARY_TYPES
 #include <nucc/xfbin.hpp>
 #include <nucc/chunks/binary/asbr.hpp>
 
@@ -20,30 +22,28 @@ namespace fs = std::filesystem;
 namespace ASBR = nucc::ASBR;
 using JSON = nlohmann::ordered_json;
 
-EXPORT ModMeta __stdcall GetModInfo();
+EXPORT JAPIModMeta __stdcall GetModMeta();
 EXPORT void __stdcall ModInit();
 
-ModMeta __stdcall GetModInfo() {
-    static ModMeta meta = {
-        "Merging Plugin", // Name
-        "Merging Plugin", // GUID
-        "BETA",           // Version
-        "Kojo Bailey"     // Author
+JAPIModMeta __stdcall GetModMeta() {
+    static JAPIModMeta meta = {
+        "Merging", // Name
+        "Merging", // GUID
+        "Kojo Bailey", // Author
+        "1.0.0", // Version
+        "Allows for easy merging of otherwise incompatible mods!" // Description
     };
-
     return meta;
 }
 
-#define DEBUG_BUILD true
-
-#define JFATAL(message, ...) JAPI_LogFatal(std::format(message, ##__VA_ARGS__))
-#define JERROR(message, ...) JAPI_LogError(std::format(message, ##__VA_ARGS__))
-#define JWARN(message, ...) JAPI_LogWarn(std::format(message, ##__VA_ARGS__))
-#define JINFO(message, ...) JAPI_LogInfo(std::format(message, ##__VA_ARGS__))
+#define JFATAL(message, ...) JAPI_LogFatal(std::format(message, ##__VA_ARGS__).c_str())
+#define JERROR(message, ...) JAPI_LogError(std::format(message, ##__VA_ARGS__).c_str())
+#define JWARN(message, ...) JAPI_LogWarn(std::format(message, ##__VA_ARGS__).c_str())
+#define JINFO(message, ...) JAPI_LogInfo(std::format(message, ##__VA_ARGS__).c_str())
 
 #if DEBUG_BUILD
-    #define JDEBUG(message, ...) JAPI_LogDebug(std::format(message, ##__VA_ARGS__))
-    #define JTRACE(message, ...) JAPI_LogTrace(std::format(message, ##__VA_ARGS__))
+    #define JDEBUG(message, ...) JAPI_LogDebug(std::format(message, ##__VA_ARGS__).c_str())
+    #define JTRACE(message, ...) JAPI_LogTrace(std::format(message, ##__VA_ARGS__).c_str())
 #else
     #define JDEBUG(message, ...)
     #define JTRACE(message, ...)
@@ -58,7 +58,7 @@ void log_bytes(char* addr, int size, std::string name) {
     debug.close();
 }
 template<typename RETURN, typename... PARAMS> auto define_function(long long address) {
-    return (RETURN(__fastcall*)(PARAMS...))(JAPI_GetASBRModuleBase() + address);
+    return (RETURN(__fastcall*)(PARAMS...))(JAPI_GetModuleBase() + address);
 }
 
 auto NUCC_Hash = define_function<int,

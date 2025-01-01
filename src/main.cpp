@@ -201,45 +201,45 @@ u64* __fastcall Parse_PlayerColorParam(u64* PlayerColorParam_cache) {
     return result;
 }
 
-Hook Get_Game_Language_hook = {
-    (void*)0x6F1970,
-    (void*)Get_Game_Language,
-    (void**)&Get_Game_Language_original,
-    "Get_Game_Language"
+JAPIHook Get_Game_Language_hook = {
+    0x6F1970, // target
+    (void*)&Get_Game_Language, // detour
+    (void**)&Get_Game_Language_original, // original
+    "Get_Game_Language" // name
 };
 
-Hook Get_Chunk_hook = {
-    (void*)0x6E3290, // Address of the function we want to hook
-    (void*)Get_Chunk, // Address of our hook function
-    (void**)&Get_Chunk_original, // Address of the variable that will store the original function address
-    "Get_Chunk" // Name of the function we want to hook
+JAPIHook Get_Chunk_hook = {
+    0x6E3290, // target
+    (void*)&Get_Chunk, // detour
+    (void**)&Get_Chunk_original, // original
+    "Get_Chunk" // name
 };
 
-Hook Load_nuccBinary_hook = {
-    (void*)0x671C30, // Address of the function we want to hook
-    (void*)Load_nuccBinary, // Address of our hook function
-    (void**)&Load_nuccBinary_original, // Address of the variable that will store the original function address
-    "Load_nuccBinary" // Name of the function we want to hook
+JAPIHook Load_nuccBinary_hook = {
+    0x671C30, // target
+    (void*)&Load_nuccBinary, // detour
+    (void**)&Load_nuccBinary_original, // original
+    "Load_nuccBinary" // name
 };
 
-Hook Parse_PlayerColorParam_hook = {
-    (void*)0x47F114, // Address of the function we want to hook
-    (void*)Parse_PlayerColorParam, // Address of our hook function
-    (void**)&Parse_PlayerColorParam_original, // Address of the variable that will store the original function address
-    "Parse_PlayerColorParam" // Name of the function we want to hook
+JAPIHook Parse_PlayerColorParam_hook = {
+    0x47F114, // target
+    (void*)&Parse_PlayerColorParam, // detour
+    (void**)&Parse_PlayerColorParam_original, // original
+    "Parse_PlayerColorParam" // name
 };
 
 // This function is called when the mod is loaded.
 void __stdcall ModInit() {
     nucc::error_handler = error_handler;
 
-    if (!JAPI_HookASBRFunction(&Get_Game_Language_hook))
+    if (!JAPI_HookGameFunction(Get_Game_Language_hook))
         JERROR("Failed to hook function `{}`.", Get_Game_Language_hook.name);
-    if (!JAPI_HookASBRFunction(&Get_Chunk_hook))
+    if (!JAPI_HookGameFunction(Get_Chunk_hook))
         JERROR("Failed to hook function `{}`.", Get_Chunk_hook.name);
-    if (!JAPI_HookASBRFunction(&Load_nuccBinary_hook))
+    if (!JAPI_HookGameFunction(Load_nuccBinary_hook))
         JERROR("Failed to hook function `{}`.", Load_nuccBinary_hook.name);
-    if (!JAPI_HookASBRFunction(&Parse_PlayerColorParam_hook))
+    if (!JAPI_HookGameFunction(Parse_PlayerColorParam_hook))
         JERROR("Failed to hook function `{}`.", Parse_PlayerColorParam_hook.name);
 
     JINFO("Loaded!");

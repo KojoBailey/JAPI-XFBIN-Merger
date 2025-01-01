@@ -5,8 +5,6 @@ set(CMAKE_CXX_STANDARD 20)
 
 file(GLOB_RECURSE SOURCES "src/*.c" "src/*.cpp" "src/*.h" "src/*.hpp")
 
-add_link_options(-static -static-libgcc -static-libstdc++)
-
 add_library(XFBIN_Merger SHARED ${SOURCES})
 
 add_subdirectory(external/japi)
